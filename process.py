@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 #/usr/bin/python2
 
-import codecs
+import cPickle as pickle
 import numpy as np
 import json
+import codecs
 import unicodedata
 import re
 import nltk
@@ -41,7 +42,7 @@ def tokenize_corenlp(text):
     return tokens
 
 class data_loader(object):
-    def __init__(self,pretrained = None):
+    def __init__(self,use_pretrained = None):
         self.c_dict = {"_UNK":0}
         self.w_dict = {"_UNK":0}
         self.w_occurence = 0
@@ -53,10 +54,12 @@ class data_loader(object):
         self.append_dict = True
         self.invalid_q = 0
 
-        if pretrained:
+        if use_pretrained:
             self.append_dict = False
-            self.process_vocab(pretrained)
+            self.w_dict, self.w_count = self.process_glove(Params.glove_dir, self.w_dict, self.w_count)
+            self.c_dict, self.c_count = self.process_glove(Params.glove_char, self.c_dict, self.c_count)
             self.ids2word = {v: k for k, v in self.w_dict.iteritems()}
+            self.ids2char = {v: k for k, v in self.c_dict.iteritems()}
 
     def ind2word(self,ids):
         output = []
@@ -72,27 +75,26 @@ class data_loader(object):
             output.append(" ")
         return "".join(output)
 
-    def process_vocab(self,wordvecs):
+    def process_glove(self, wordvecs, dict_, count):
+        print("Reading GloVe from: {}".format(wordvecs))
         with codecs.open(wordvecs,"rb","utf-8") as f:
             line = f.readline()
             i = 0
             while line:
                 vocab = line.split(" ")
-                if len(vocab) != 301:
+                if len(vocab) != Params.emb_size + 1:
                     line = f.readline()
                     continue
-                vocab = normalize_text(''.join(vocab[0:-300]).decode("utf-8"))
-                self.process_char(vocab)
-                if vocab in self.w_dict:
-                    self.w_count += 1
-                if vocab not in self.w_dict:
-                    self.w_dict[vocab] = self.w_count
-                    self.w_count += 1
+                vocab = normalize_text(''.join(vocab[0:-Params.emb_size]).decode("utf-8"))
+                if vocab not in dict_:
+                    dict_[vocab] = count
                 line = f.readline()
+                count += 1
                 i += 1
                 if i % 100 == 0:
                     sys.stdout.write("\rProcessing line %d"%i)
-            print("\n")
+            print("")
+        return dict_, count
 
     def process_json(self,dir):
         self.data = json.load(codecs.open(dir,"rb","utf-8"))
@@ -118,7 +120,7 @@ class data_loader(object):
                         para['context'] = pattern.sub(lambda m: cond[re.escape(m.group(0))], para['context'])
 
                 words_c,chars_c = self.add_to_dict(para['context'])
-                if len(words_c) > Params.max_len:
+                if len(words_c) >= Params.max_len:
                     continue
 
                 for qas in para['qas']:
@@ -145,7 +147,7 @@ class data_loader(object):
                     self.w_count += 1
 
     def process_char(self,line):
-        for char in re.sub(r"[^a-zA-Z0-9'()_;:\[\]\-\"\)\(.,?]", "", line.strip()):
+        for char in line.strip():
             if char:
                 if char != " ":
                     if not char in self.c_dict:
@@ -159,8 +161,8 @@ class data_loader(object):
         splitted_line = tokenize_corenlp(splitted_line)
         if self.append_dict:
             self.process_word(splitted_line)
+            self.process_char("".join(splitted_line))
 
-        self.process_char(splitted_line)
         words = []
         chars = []
         for i,word in enumerate(splitted_line):
@@ -183,8 +185,8 @@ class data_loader(object):
                     self.w_unknown_count += 1
         return (words, chars)
 
-def load_glove(dir_):
-    glove = np.zeros((Params.vocab_size,300),dtype = np.float32)
+def load_glove(dir_, name, vocab_size):
+    glove = np.zeros((vocab_size,Params.emb_size),dtype = np.float32)
     with codecs.open(dir_,"rb","utf-8") as f:
         line = f.readline()
         i = 1
@@ -192,10 +194,10 @@ def load_glove(dir_):
             if i % 100 == 0:
                 sys.stdout.write("\rProcessing %d vocabs"%i)
             vector = line.split(" ")
-            if len(vector) != 301:
+            if len(vector) != Params.emb_size + 1:
                 line = f.readline()
                 continue
-            vector = vector[-300:]
+            vector = vector[-Params.emb_size:]
             if vector:
                 try:
                     vector = [float(n) for n in vector]
@@ -208,9 +210,10 @@ def load_glove(dir_):
                     assert 0
             line = f.readline()
             i += 1
-    print("\n")
-    glove_map = np.memmap(Params.data_dir + "glove.np", dtype='float32', mode='write', shape=(Params.vocab_size,300))
+    print("")
+    glove_map = np.memmap(Params.data_dir + name + ".np", dtype='float32', mode='write', shape=(vocab_size,Params.emb_size))
     glove_map[:] = glove
+    del glove_map
 
 def find_answer_index(context, answer):
     window_len = len(answer)
@@ -317,9 +320,12 @@ def max_value(inputlist):
     return max_val
 
 def main():
-    loader = data_loader(pretrained = Params.glove_dir)
-    loader.process_json(Params.data_dir + "train-v1.1.json")
-    load_glove(Params.glove_dir)
+    with open(Params.data_dir + 'dictionary.pkl','wb') as dictionary:
+    	loader = data_loader(use_pretrained = True)
+    	loader.process_json(Params.data_dir + "train-v1.1.json")
+    	pickle.dump(loader, dictionary, pickle.HIGHEST_PROTOCOL)
+    load_glove(Params.glove_dir,"glove",vocab_size = Params.vocab_size)
+    load_glove(Params.glove_char,"glove_char", vocab_size = Params.char_vocab_size)
 
 if __name__ == "__main__":
     main()
