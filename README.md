@@ -2,7 +2,9 @@
 
 Tensorflow implementation of https://www.microsoft.com/en-us/research/wp-content/uploads/2017/05/r-net.pdf
 
-Work in progress.
+Currently haven't trained with full dataset.
+Trained using 3000 independent randomly sampled question-answering pairs.
+![Alt text](/../dev/screenshots/figure.png?raw=true "Training error")
 
 ## Requirements
   * NumPy
@@ -18,11 +20,12 @@ $ bash setup.sh
 $ python process.py --process True
 ```
 # Training
+To train the model, run the following lines.
 ```shell
 $ python model.py
 ```
 # Tensorboard
-Run tensorboard.
+Run tensorboard for visualisation.
 ```shell
 $ tensorboard --logdir=r-net:r_net/
 ```

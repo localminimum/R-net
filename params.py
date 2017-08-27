@@ -1,7 +1,7 @@
 class Params():
 
     # data
-    used_data = 3000
+    data_size = 3000
     num_epochs = 100
     data_dir = "./data/"
     logdir = "./train/train"
