@@ -34,7 +34,7 @@ $ tensorboard --logdir=r-net:r_net/
 ```
 
 # Note
-As a sanity check I trained the network with 3000 independent randomly sampled question-answering pairs. It took about 4 hours and a half for the model to get the gist of what's going on with the data. With full dataset (90,000+ pairs) we are expecting longer time for convergence.
+As a sanity check I trained the network with 3000 independent randomly sampled question-answering pairs. With my GTX 1080, it took about 4 hours and a half for the model to get the gist of what's going on with the data. With full dataset (90,000+ pairs) we are expecting longer time for convergence.
 
 Some sort of normalization method might help speed up convergence (though the authors of the original paper didn't mention anything about the normalization).
 

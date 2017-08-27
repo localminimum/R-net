@@ -160,7 +160,7 @@ class data_loader(object):
         if self.append_dict:
             self.process_word(splitted_line)
 
-        self.process_char(splitted_line)
+        self.process_char("".join(splitted_line))
         words = []
         chars = []
         for i,word in enumerate(splitted_line):

@@ -1,7 +1,7 @@
 class Params():
 
     # data
-    data_size = 3000
+    data_size = 80000
     num_epochs = 100
     data_dir = "./data/"
     logdir = "./train/train"
@@ -20,7 +20,7 @@ class Params():
     learning_rate = 1
     vocab_size = 2196018
     char_vocab_size = 74
-    batch_size = 16
+    batch_size = 32
     train_prop = 0.9
     emb_size = 300
     attn_size = 75
