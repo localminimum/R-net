@@ -156,7 +156,7 @@ def get_batch():
 
         train_ind = np.arange(indices.shape[0],dtype = np.int32)
         np.random.shuffle(train_ind)
-        ind_list = tf.convert_to_tensor(train_ind[:Params.used_data])
+        ind_list = tf.convert_to_tensor(train_ind[:Params.data_size])
 
         # Create Queues
         ind_list = tf.train.slice_input_producer([ind_list], shuffle=True)
@@ -165,6 +165,7 @@ def get_batch():
                 (1,),(1,),
                 (p_max_word,),(q_max_word,),
                 (2,)]
+
         @producer_func
         def get_data(ind):
             '''From `_inputs`, which has been fetched from slice queues,
@@ -172,7 +173,7 @@ def get_batch():
             '''
 
             while (indices[ind][0] == -1).any():
-                ind  = np.random.choice(train_ind[:Params.used_data])
+                ind  = np.random.choice(train_ind[:Params.data_size])
             return [np.reshape(input_[ind], shapes[i]) for i,input_ in enumerate(input_list)]
 
         data = get_data(inputs=ind_list,
@@ -192,4 +193,4 @@ def get_batch():
                                 capacity=Params.batch_size*32,
                                 dynamic_pad=True)
 
-    return batch, Params.used_data // Params.batch_size
+    return batch, Params.data_size // Params.batch_size
