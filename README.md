@@ -1,8 +1,9 @@
 # R-NET: MACHINE READING COMPREHENSION WITH SELF MATCHING NETWORKS
 
 Tensorflow implementation of https://www.microsoft.com/en-us/research/wp-content/uploads/2017/05/r-net.pdf
+![Alt text](/../dev/screenshots/architecture.png?raw=true "R-NET")
 
-Currently I haven't trained with the full SQuAD dataset.
+Training with full SQuAD dataset is currently a work in progress.
 
 The dataset used for this task is Stanford Question Answering Dataset (https://rajpurkar.github.io/SQuAD-explorer/).
 
@@ -32,6 +33,7 @@ Run tensorboard for visualisation.
 ```shell
 $ tensorboard --logdir=r-net:r_net/
 ```
+![Alt text](/../dev/screenshots/graph.png?raw=true "Tensorboard Graph")
 
 # Note
 As a sanity check I trained the network with 3000 independent randomly sampled question-answering pairs. With my GTX 1080, it took about 4 hours and a half for the model to get the gist of what's going on with the data. With full dataset (90,000+ pairs) we are expecting longer time for convergence.
