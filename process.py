@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 #/usr/bin/python2
 
-import codecs
+import cPickle as pickle
 import numpy as np
 import json
+import codecs
 import unicodedata
 import re
 import nltk
@@ -317,8 +318,10 @@ def max_value(inputlist):
     return max_val
 
 def main():
-    loader = data_loader(pretrained = Params.glove_dir)
-    loader.process_json(Params.data_dir + "train-v1.1.json")
+    with open(Params.data_dir + 'dictionary.pkl','wb') as dictionary:
+	loader = data_loader(pretrained = Params.glove_dir)
+	loader.process_json(Params.data_dir + "train-v1.1.json")
+	pickle.dump(loader, dictionary, pickle.HIGHEST_PROTOCOL)
     load_glove(Params.glove_dir)
 
 if __name__ == "__main__":

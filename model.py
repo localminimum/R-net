@@ -120,7 +120,7 @@ class Model(object):
             self.global_step = tf.Variable(0, name='global_step', trainable=False)
 
             # gradient clipping by norm
-            gradients, variables = zip(self.optimizer.compute_gradients(self.mean_loss))
+            gradients, variables = zip(*self.optimizer.compute_gradients(self.mean_loss))
             gradients, _ = tf.clip_by_global_norm(gradients, 5.0)
             self.train_op = self.optimizer.apply_gradients(zip(gradients, variables), global_step = self.global_step)
 

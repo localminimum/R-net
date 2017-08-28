@@ -1,7 +1,7 @@
 class Params():
 
     # data
-    data_size = 80000
+    data_size = 3000
     num_epochs = 100
     data_dir = "./data/"
     logdir = "./train/train"
@@ -14,12 +14,12 @@ class Params():
     coreNLP_dir = "./stanford-corenlp-full-2017-06-09"
 
     # model
-    debug = False
+    debug = False 
     max_len = 200
     save_steps = 50
     learning_rate = 1
     vocab_size = 2196018
-    char_vocab_size = 74
+    char_vocab_size = 77
     batch_size = 32
     train_prop = 0.9
     emb_size = 300
