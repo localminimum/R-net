@@ -9,7 +9,6 @@ The dataset used for this task is Stanford Question Answering Dataset (https://r
 
 ## Requirements
   * NumPy
-  * librosa
   * tqdm
   * TensorFlow == 1.2
 
