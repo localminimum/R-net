@@ -5,7 +5,7 @@ class Params():
     num_epochs = 100
     train_prop = 0.9 # Not implemented atm
     data_dir = "./data/"
-    logdir = "./train/adadelta"
+    logdir = "./train/adam"
     glove_dir = "glove.840B.300d.txt"
     glove_char = "glove.840B.300d.char.txt"
     target_dir = data_dir + "/indices.txt"
@@ -17,8 +17,8 @@ class Params():
 
     # Training
     debug = False # Set it to True to debug the computation graph
-    learning_rate = 1 # Adadelta doesn't require initial learning rate
-    optimizer = "adadelta" # Options: ["adadelta", "adam", "gradientdescent", "adagrad"]
+    learning_rate = 0.001 # Adadelta doesn't require initial learning rate
+    optimizer = "adam" # Options: ["adadelta", "adam", "gradientdescent", "adagrad"]
     batch_size = 16
     save_steps = 50 # Save the model at every 50 steps
 

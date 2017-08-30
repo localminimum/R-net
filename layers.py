@@ -37,7 +37,7 @@ def encoding(word, char, word_embeddings, char_embeddings, scope = "embedding"):
         char_encoding = tf.nn.embedding_lookup(char_embeddings, char)
         return word_encoding, char_encoding
 
-def apply_dropout(cell,dropout = 0.2, is_training = True):
+def apply_dropout(cell, dropout = 0.2, is_training = True):
     if is_training:
         return tf.contrib.rnn.DropoutWrapper(cell, output_keep_prob=1.0 - dropout)
     else:
