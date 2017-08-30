@@ -78,13 +78,13 @@ class Model(object):
         # Passage and question encoding
         self.passage_encoding = bidirectional_GRU(self.passage_encoding,
                                                     self.passage_w_len,
-                                                    layers = 3,
+                                                    layers = Params.num_layers,
                                                     scope = "passage_encoding",
                                                     output = 0,
                                                     is_training = self.is_training)
         self.question_encoding = bidirectional_GRU(self.question_encoding,
                                                     self.question_w_len,
-                                                    layers = 3,
+                                                    layers = Params.num_layers,
                                                     scope = "question_encoding",
                                                     output = 0,
                                                     is_training = self.is_training)
@@ -117,7 +117,7 @@ class Model(object):
     def bidirectional_readout(self):
         self.final_bidirectional_outputs = bidirectional_GRU(self.self_matching_output,
             self.passage_w_len,
-            layers = 3,
+            layers = Params.num_layers,
             scope = "bidirectional_readout",
             output = 0,
             is_training = self.is_training)
@@ -134,7 +134,6 @@ class Model(object):
             mask = tf.to_float(tf.sequence_mask(self.passage_w_len, shapes[1]))
             self.points_logits *= tf.expand_dims(mask,1)
             self.mean_loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(labels = self.indices, logits = self.points_logits))
-
             self.optimizer = optimizer_factory[Params.optimizer]
 
             # gradient clipping by norm
