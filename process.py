@@ -120,7 +120,7 @@ class data_loader(object):
                         para['context'] = pattern.sub(lambda m: cond[re.escape(m.group(0))], para['context'])
 
                 words_c,chars_c = self.add_to_dict(para['context'])
-                if len(words_c) > Params.max_len:
+                if len(words_c) >= Params.max_len:
                     continue
 
                 for qas in para['qas']:
