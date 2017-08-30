@@ -139,7 +139,7 @@ class Model(object):
 
             # gradient clipping by norm
             gradients, variables = zip(*self.optimizer.compute_gradients(self.mean_loss))
-            gradients, _ = tf.clip_by_global_norm(gradients, 5.0)
+            gradients, _ = tf.clip_by_global_norm(gradients, 2.0)
             self.train_op = self.optimizer.apply_gradients(zip(gradients, variables), global_step = self.global_step)
 
     def summary(self):
@@ -176,7 +176,7 @@ def main():
                 for step in tqdm(range(model.num_batch), total = model.num_batch, ncols=70, leave=False, unit='b'):
                     sess.run(model.train_op)
                     if step % Params.save_steps == 0:
-                        sv.saver.save(sess, Params.logdir + '/model_step_%d'%step)
+                        sv.saver.save(sess, Params.logdir + '/model_epoch_%d_step_%d'%(epoch,step))
 
 if __name__ == '__main__':
     if Params.debug == True:
