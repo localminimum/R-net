@@ -30,7 +30,7 @@ $ python model.py
 # Tensorboard
 Run tensorboard for visualisation.
 ```shell
-$ tensorboard --logdir=r-net:r_net/
+$ tensorboard --logdir=r-net:train/
 ```
 ![Alt text](/../dev/screenshots/graph.png?raw=true "Tensorboard Graph")
 
