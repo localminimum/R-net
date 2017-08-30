@@ -2,6 +2,7 @@
 #/usr/bin/python2
 
 from tensorflow.contrib.rnn import MultiRNNCell
+from tensorflow.contrib.rnn import RNNCell
 from params import Params
 import tensorflow as tf
 import numpy as np
@@ -18,7 +19,7 @@ W_h^a.shape:    (2 * attn_size, attn_size)
 W_v^Q.shape:    (attn_size, attn_size)
 '''
 
-def get_attn_params(attn_size,initializer = tf.contrib.layers.xavier_initializer()):
+def get_attn_params(attn_size,initializer = tf.truncated_normal_initializer()):
     with tf.variable_scope("attention_weights"):
         params = {"W_u_Q":tf.get_variable("W_u_Q",dtype = tf.float32, shape = (2 * attn_size, attn_size), initializer = initializer),
                 "W_u_P":tf.get_variable("W_u_P",dtype = tf.float32, shape = (2 * attn_size, attn_size), initializer = initializer),
@@ -37,11 +38,13 @@ def encoding(word, char, word_embeddings, char_embeddings, scope = "embedding"):
         char_encoding = tf.nn.embedding_lookup(char_embeddings, char)
         return word_encoding, char_encoding
 
-def apply_dropout(cell,dropout = 0.2, is_training = True):
-    if is_training:
-        return tf.contrib.rnn.DropoutWrapper(cell, output_keep_prob=1.0 - dropout)
+def apply_dropout(inputs, dropout = 0.2, is_training = True):
+    if not is_training:
+        return inputs
+    if isinstance(inputs, RNNCell):
+        return tf.contrib.rnn.DropoutWrapper(inputs, output_keep_prob=1.0 - dropout)
     else:
-        return cell
+        return tf.nn.dropout(inputs, keep_prob = 1.0 - dropout)
 
 def bidirectional_GRU(inputs, inputs_len, cell = None, units = 75, layers = 1, scope = "Bidirectional_GRU", output = 0, is_training = True, reuse = None):
     with tf.variable_scope(scope, reuse = reuse):

@@ -9,6 +9,7 @@ import unicodedata
 import re
 import nltk
 import sys
+import os
 import argparse
 
 from tqdm import tqdm
@@ -96,15 +97,17 @@ class data_loader(object):
             print("")
         return dict_, count
 
-    def process_json(self,dir):
-        self.data = json.load(codecs.open(dir,"rb","utf-8"))
-        self.loop(self.data)
+    def process_json(self,file_dir,out_dir):
+        if not os.path.exists(out_dir):
+            os.makedirs(out_dir)
+        self.data = json.load(codecs.open(file_dir,"rb","utf-8"))
+        self.loop(self.data, out_dir)
         self.ids2char = {v: k for k, v in self.c_dict.iteritems()}
         with codecs.open("dictionary.txt","wb","utf-8") as f:
             for key, value in sorted(self.w_dict.iteritems(), key=lambda (k,v): (v,k)):
                 f.write("%s: %s" % (key, value) + "\n")
 
-    def loop(self,data):
+    def loop(self, data, dir_ = Params.train_dir):
         watch_list = ["one"]
         for topic in data['data']:
             for para in topic['paragraphs']:
@@ -126,16 +129,17 @@ class data_loader(object):
                 for qas in para['qas']:
                     question = qas['question']
                     words,chars = self.add_to_dict(question)
-                    write_file(words,"words_questions.txt","\n")
-                    write_file(chars,"chars_questions.txt","\n")
-                    write_file(words_c,"words_context.txt")
-                    write_file(chars_c,"chars_context.txt")
-                    for ans in qas['answers']:
-                        ans_ids,_ = self.add_to_dict(ans['text'])
-                        (start_i, finish_i) = find_answer_index(words_c, ans_ids)
-                        if start_i == -1:
-                            self.invalid_q += 1
-                        write_file([str(start_i),str(finish_i)],"indices.txt","\n")
+                    ans = qas['answers'][0]
+                    ans_ids,_ = self.add_to_dict(ans['text'])
+                    (start_i, finish_i) = find_answer_index(words_c, ans_ids)
+                    if start_i == -1:
+                        self.invalid_q += 1
+                        continue
+                    write_file([str(start_i),str(finish_i)],dir_ + "indices.txt","\n")
+                    write_file(words,dir_ + "words_questions.txt","\n")
+                    write_file(chars,dir_ + "chars_questions.txt","\n")
+                    write_file(words_c,dir_ + "words_context.txt")
+                    write_file(chars_c,dir_ + "chars_context.txt")
 
     def process_word(self,line):
         for word in splitted_line:
@@ -221,11 +225,11 @@ def find_answer_index(context, answer):
         if answer[0] in context:
             return (context.index(answer[0]), context.index(answer[0]))
         else:
-            return(-1,-1)
+            return (-1, -1)
     for i in range(len(context)):
         if context[i:i+window_len] == answer:
             return (i, i + window_len)
-    return(-1,-1)
+    return (-1, -1)
 
 def normalize_text(text):
     return unicodedata.normalize('NFD', text)
@@ -241,8 +245,8 @@ def to_text_file(line, dir):
     with codecs.open(dir,"ab","utf-8") as f:
         f.write(line + "\n")
 
-def write_file(indices, dir, separate = "\n"):
-    with codecs.open(Params.data_dir + dir,"ab","utf-8") as f:
+def write_file(indices, dir_, separate = "\n"):
+    with codecs.open(dir_,"ab","utf-8") as f:
         f.write(" ".join(indices) + separate)
 
 def pad_data(data, max_word):
@@ -322,7 +326,8 @@ def max_value(inputlist):
 def main():
     with open(Params.data_dir + 'dictionary.pkl','wb') as dictionary:
     	loader = data_loader(use_pretrained = True)
-    	loader.process_json(Params.data_dir + "train-v1.1.json")
+    	loader.process_json(Params.data_dir + "train-v1.1.json", out_dir = Params.train_dir)
+    	loader.process_json(Params.data_dir + "dev-v1.1.json", out_dir = Params.dev_dir)
     	pickle.dump(loader, dictionary, pickle.HIGHEST_PROTOCOL)
     load_glove(Params.glove_dir,"glove",vocab_size = Params.vocab_size)
     load_glove(Params.glove_char,"glove_char", vocab_size = Params.char_vocab_size)

@@ -112,47 +112,59 @@ class _FuncQueueRunner(tf.train.QueueRunner):
                 with self._lock:
                     self._runs_per_session[sess] -= 1
 
+def load_data(dir_):
+    # Target indices
+    indices = load_target(dir_ + Params.target_dir)
+
+    # Load question data
+    print("Loading question data...")
+    q_word_ids, _ = load_word(dir_ + Params.q_word_dir)
+    q_char_ids, q_char_len, q_word_len = load_char(dir_ + Params.q_chars_dir)
+
+    # Load passage data
+    print("Loading passage data...")
+    p_word_ids, _ = load_word(dir_ + Params.p_word_dir)
+    p_char_ids, p_char_len, p_word_len = load_char(dir_ + Params.p_chars_dir)
+
+    # Get max length to pad
+    p_max_word = np.max(p_word_len)
+    p_max_char = max_value(p_char_len)
+    q_max_word = np.max(q_word_len)
+    q_max_char = max_value(q_char_len)
+
+    # pad_data
+    print("Preparing training data...")
+    p_word_ids = pad_data(p_word_ids,p_max_word)
+    q_word_ids = pad_data(q_word_ids,q_max_word)
+    p_char_ids = pad_char_data(p_char_ids,p_max_char,p_max_word)
+    q_char_ids = pad_char_data(q_char_ids,q_max_char,q_max_word)
+
+    # to numpy
+    indices = np.reshape(np.asarray(indices,np.int32),(-1,2))
+    p_word_len = np.reshape(np.asarray(p_word_len,np.int32),(-1,1))
+    q_word_len = np.reshape(np.asarray(q_word_len,np.int32),(-1,1))
+    p_char_len = pad_data(p_char_len,p_max_word)
+    q_char_len = pad_data(q_char_len,q_max_word)
+
+    # shapes of each data
+    shapes=[(p_max_word,),(q_max_word,),
+            (p_max_word,p_max_char,),(q_max_word,q_max_char,),
+            (1,),(1,),
+            (p_max_word,),(q_max_word,),
+            (2,)]
+
+    return ([p_word_ids, q_word_ids,
+            p_char_ids, q_char_ids,
+            p_word_len, q_word_len,
+            p_char_len, q_char_len,
+            indices], shapes)
+
 def get_batch():
     """Loads training data and put them in queues"""
     with tf.device('/cpu:0'):
-        # Target indices
-        indices = load_target(Params.target_dir)
-
-        # Load question data
-        print("Loading question data...")
-        q_word_ids, _ = load_word(Params.q_word_dir)
-        q_char_ids, q_char_len, q_word_len = load_char(Params.q_chars_dir)
-
-        # Load passage data
-        print("Loading passage data...")
-        p_word_ids, _ = load_word(Params.p_word_dir)
-        p_char_ids, p_char_len, p_word_len = load_char(Params.p_chars_dir)
-
-        # Get max length to pad
-        p_max_word = np.max(p_word_len)
-        p_max_char = max_value(p_char_len)
-        q_max_word = np.max(q_word_len)
-        q_max_char = max_value(q_char_len)
-
-        # pad_data
-        print("Preparing training data...")
-        p_word_ids = pad_data(p_word_ids,p_max_word)
-        q_word_ids = pad_data(q_word_ids,q_max_word)
-        p_char_ids = pad_char_data(p_char_ids,p_max_char,p_max_word)
-        q_char_ids = pad_char_data(q_char_ids,q_max_char,q_max_word)
-
-        # to numpy
-        indices = np.reshape(np.asarray(indices,np.int32),(-1,2))
-        p_word_len = np.reshape(np.asarray(p_word_len,np.int32),(-1,1))
-        q_word_len = np.reshape(np.asarray(q_word_len,np.int32),(-1,1))
-        p_char_len = pad_data(p_char_len,p_max_word)
-        q_char_len = pad_data(q_char_len,q_max_word)
-
-        input_list = [p_word_ids, q_word_ids,
-                        p_char_ids, q_char_ids,
-                        p_word_len, q_word_len,
-                        p_char_len, q_char_len,
-                        indices]
+        # Training set
+        input_list, shapes = load_data(Params.train_dir)
+        indices = input_list[-1]
 
         train_ind = np.arange(indices.shape[0],dtype = np.int32)
         np.random.shuffle(train_ind)
@@ -160,20 +172,12 @@ def get_batch():
 
         # Create Queues
         ind_list = tf.train.slice_input_producer([ind_list], shuffle=True)
-        shapes=[(p_max_word,),(q_max_word,),
-                (p_max_word,p_max_char,),(q_max_word,q_max_char,),
-                (1,),(1,),
-                (p_max_word,),(q_max_word,),
-                (2,)]
 
         @producer_func
         def get_data(ind):
             '''From `_inputs`, which has been fetched from slice queues,
                then enqueue them again.
             '''
-
-            while (indices[ind][0] == -1).any():
-                ind  = np.random.choice(train_ind[:Params.data_size])
             return [np.reshape(input_[ind], shapes[i]) for i,input_ in enumerate(input_list)]
 
         data = get_data(inputs=ind_list,
@@ -183,11 +187,7 @@ def get_batch():
 
         # create batch queues
         batch = tf.train.batch(data,
-                                shapes=[(p_max_word,),(q_max_word,),
-                                        (p_max_word,p_max_char,),(q_max_word,q_max_char,),
-                                        (1,),(1,),
-                                        (p_max_word,),(q_max_word,),
-                                        (2,)],
+                                shapes=shapes,
                                 num_threads=8,
                                 batch_size=Params.batch_size,
                                 capacity=Params.batch_size*32,

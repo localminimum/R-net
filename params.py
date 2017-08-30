@@ -5,20 +5,24 @@ class Params():
     num_epochs = 100
     train_prop = 0.9 # Not implemented atm
     data_dir = "./data/"
-    logdir = "./train/adam"
+    train_dir = data_dir + "trainset/"
+    dev_dir = data_dir + "devset/"
+    logdir = "./train/adadelta"
     glove_dir = "glove.840B.300d.txt"
     glove_char = "glove.840B.300d.char.txt"
-    target_dir = data_dir + "/indices.txt"
-    q_word_dir = data_dir + "/words_questions.txt"
-    q_chars_dir = data_dir + "/chars_questions.txt"
-    p_word_dir = data_dir + "/words_context.txt"
-    p_chars_dir = data_dir + "/chars_context.txt"
     coreNLP_dir = "./stanford-corenlp-full-2017-06-09"
 
+    # Data dir
+    target_dir = "indices.txt"
+    q_word_dir = "words_questions.txt"
+    q_chars_dir = "chars_questions.txt"
+    p_word_dir = "words_context.txt"
+    p_chars_dir = "chars_context.txt"
+
     # Training
-    debug = False # Set it to True to debug the computation graph
-    learning_rate = 0.001 # Adadelta doesn't require initial learning rate
-    optimizer = "adam" # Options: ["adadelta", "adam", "gradientdescent", "adagrad"]
+    debug = True # Set it to True to debug the computation graph
+    learning_rate = 1 # Adadelta doesn't require initial learning rate
+    optimizer = "adadelta" # Options: ["adadelta", "adam", "gradientdescent", "adagrad"]
     batch_size = 16
     save_steps = 50 # Save the model at every 50 steps
 
