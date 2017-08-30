@@ -11,6 +11,11 @@ from layers import *
 from GRU import gated_attention_GRUCell
 import numpy as np
 
+optimizer_factory = {"adadelta":tf.train.AdadeltaOptimizer(learning_rate = Params.learning_rate, epsilon = 1e-06),
+                    "adam":tf.train.AdamOptimizer(learning_rate = Params.learning_rate),
+                    "gradientdescent":tf.train.GradientDescentOptimizer(learning_rate = Params.learning_rate),
+                    "adagrad":tf.train.AdagradOptimizer(learning_rate = Params.learning_rate)}
+
 class Model(object):
     def __init__(self,is_training = True):
         self.is_training = is_training
@@ -34,6 +39,7 @@ class Model(object):
                 self.encode_ids()
                 self.params = get_attn_params(Params.attn_size)
                 self.attention_match_rnn()
+                self.bidirectional_readout()
                 self.pointer_network()
                 self.loss_function()
                 self.summary()
@@ -42,10 +48,10 @@ class Model(object):
 
     def encode_ids(self):
         with tf.device('/cpu:0'):
-            self.word_embeddings = tf.Variable(tf.constant(0.0, shape=[Params.vocab_size, Params.emb_size]),trainable=False, name="word_embeddings")
-            self.word_embeddings_placeholder = tf.placeholder(tf.float32,[Params.vocab_size, Params.emb_size],"word_embeddings_placeholder")
             self.char_embeddings = tf.Variable(tf.constant(0.0, shape=[Params.char_vocab_size, Params.emb_size]),trainable=False, name="char_embeddings")
             self.char_embeddings_placeholder = tf.placeholder(tf.float32,[Params.char_vocab_size, Params.emb_size],"char_embeddings_placeholder")
+            self.word_embeddings = tf.Variable(tf.constant(0.0, shape=[Params.vocab_size, Params.emb_size]),trainable=False, name="word_embeddings")
+            self.word_embeddings_placeholder = tf.placeholder(tf.float32,[Params.vocab_size, Params.emb_size],"word_embeddings_placeholder")
             self.emb_assign = tf.group(tf.assign(self.word_embeddings, self.word_embeddings_placeholder),tf.assign(self.char_embeddings, self.char_embeddings_placeholder))
 
         self.passage_word_encoded, self.passage_char_encoded = encoding(self.passage_w,
@@ -108,21 +114,28 @@ class Model(object):
             memory = inputs # self_matching
         self.self_matching_output = inputs
 
+    def bidirectional_readout(self):
+        self.final_bidirectional_outputs = bidirectional_GRU(self.self_matching_output,
+            self.passage_w_len,
+            layers = 3,
+            scope = "bidirectional_readout",
+            output = 0,
+            is_training = self.is_training)
+
     def pointer_network(self):
         params = ((tf.concat((self.params["W_u_Q"],self.params["W_v_Q"]),axis = 0),self.params["v"]),
                     (tf.concat((self.params["W_h_P"],self.params["W_h_a"]),axis = 0),self.params["v"]))
         cell = tf.contrib.rnn.GRUCell(Params.attn_size*2)
-        self.points_logits = pointer_net(self.self_matching_output, self.passage_w_len, self.question_encoding, cell, params, scope = "pointer_network")
+        self.points_logits = pointer_net(self.final_bidirectional_outputs, self.passage_w_len, self.question_encoding, cell, params, scope = "pointer_network")
 
     def loss_function(self):
         with tf.variable_scope("loss"):
             shapes = self.passage_w.shape
             mask = tf.to_float(tf.sequence_mask(self.passage_w_len, shapes[1]))
             self.points_logits *= tf.expand_dims(mask,1)
-
             self.mean_loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(labels = self.indices, logits = self.points_logits))
-            # self.optimizer = tf.train.AdadeltaOptimizer(learning_rate = Params.learning_rate, epsilon = 1e-06)
-            self.optimizer = tf.train.AdamOptimizer(learning_rate = Params.learning_rate)
+
+            self.optimizer = optimizer_factory[Params.optimizer]
 
             # gradient clipping by norm
             gradients, variables = zip(*self.optimizer.compute_gradients(self.mean_loss))
