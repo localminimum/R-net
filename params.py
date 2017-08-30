@@ -4,7 +4,7 @@ class Params():
     data_size = 80000
     num_epochs = 100
     data_dir = "./data/"
-    logdir = "./train/train"
+    logdir = "./train/adam"
     glove_dir = "glove.840B.300d.txt"
     glove_char = "glove.840B.300d.char.txt"
     target_dir = data_dir + "/indices.txt"
@@ -18,7 +18,8 @@ class Params():
     debug = False # Set it to True to debug the computation graph
     max_len = 200 # Maximum number of words in each passage context
     save_steps = 50 # Save the model at every 50 steps
-    learning_rate = 1 # Adadelta doesn't require initial learning rate
+    # NOTE Used AdamOptimizer for now, as AdadeltaOptimizer causes NaN error
+    learning_rate = 0.001 # Adadelta doesn't require initial learning rate
     vocab_size = 2196018 # Number of vocabs in glove.840B.300d.txt + 1 for an unknown token
     char_vocab_size = 95 # Number of characters in glove.840B.300d.char.txt + 1 for an unknown character
     batch_size = 16

@@ -17,6 +17,7 @@ class Model(object):
         self.graph = tf.Graph()
         with self.graph.as_default():
             if is_training:
+                self.global_step = tf.Variable(0, name='global_step', trainable=False)
                 data, self.num_batch = get_batch()
                 (self.passage_w,
                 self.question_w,
@@ -120,8 +121,8 @@ class Model(object):
             self.points_logits *= tf.expand_dims(mask,1)
 
             self.mean_loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(labels = self.indices, logits = self.points_logits))
-            self.optimizer = tf.train.AdadeltaOptimizer(learning_rate = Params.learning_rate, epsilon = 1e-06)
-            self.global_step = tf.Variable(0, name='global_step', trainable=False)
+            # self.optimizer = tf.train.AdadeltaOptimizer(learning_rate = Params.learning_rate, epsilon = 1e-06)
+            self.optimizer = tf.train.AdamOptimizer(learning_rate = Params.learning_rate)
 
             # gradient clipping by norm
             gradients, variables = zip(*self.optimizer.compute_gradients(self.mean_loss))
@@ -151,15 +152,12 @@ def main():
     char_glove = np.memmap(Params.data_dir + "glove_char.np",dtype = np.float32, mode = "r")
     char_glove = np.reshape(char_glove,(Params.char_vocab_size,300))
     with model.graph.as_default():
-	print("loading model...")
         sv = tf.train.Supervisor(logdir=Params.logdir,
                                 save_model_secs=0,
                                 global_step = model.global_step,
                                 init_op = model.init_op)
         with sv.managed_session() as sess:
-	    print("assign embeddings...")
             sess.run(model.emb_assign, {model.word_embeddings_placeholder:glove, model.char_embeddings_placeholder:char_glove})
-	    print("embeddings assigned...")
             for epoch in range(1, Params.num_epochs+1):
                 if sv.should_stop(): break
                 for step in tqdm(range(model.num_batch), total = model.num_batch, ncols=70, leave=False, unit='b'):
