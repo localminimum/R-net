@@ -11,10 +11,10 @@ attention weights from https://www.microsoft.com/en-us/research/wp-content/uploa
 W_u^Q.shape:    (2 * attn_size, attn_size)
 W_u^P.shape:    (2 * attn_size, attn_size)
 W_v^P.shape:    (attn_size, attn_size)
-W_g.shape:      (2 * attn_size, 2 * attn_size)
+W_g.shape:      (4 * attn_size, 4 * attn_size)
 W_h^P.shape:    (2 * attn_size, attn_size)
-W_v^Phat.shape: (attn_size, attn_size)
-W_h^a.shape:    (attn_size, attn_size)
+W_v^Phat.shape: (2 * attn_size, attn_size)
+W_h^a.shape:    (2 * attn_size, attn_size)
 W_v^Q.shape:    (attn_size, attn_size)
 '''
 
@@ -31,23 +31,10 @@ def get_attn_params(attn_size,initializer = tf.contrib.layers.xavier_initializer
                 "v":tf.get_variable("v", dtype = tf.float32, shape = attn_size, initializer = initializer)}
         return params
 
-def encoding(word, char, units = 75, word_embedding = None, scope = "embedding", reuse = None):
-    with tf.variable_scope(scope, reuse = reuse):
-        if word_embedding is not None:
-            word_encoding = tf.nn.embedding_lookup(word_embedding, word)
-        else:
-            with tf.device('/cpu:0'):
-                embedding = tf.get_variable("lookup_table",
-                                            dtype = tf.float32,
-                                            shape = [Params.vocab_size, units],
-                                            initializer=tf.truncated_normal_initializer(mean=0.0, stddev=0.01))
-            word_encoding = tf.nn.embedding_lookup(embedding, word)
-
-        char_embedding = tf.get_variable("char_lookup_table",
-                                        dtype = tf.float32,
-                                        shape = [Params.char_vocab_size+1, units],
-                                        initializer=tf.truncated_normal_initializer(mean=0.0, stddev=0.01))
-        char_encoding = tf.nn.embedding_lookup(char_embedding, char)
+def encoding(word, char, word_embeddings, char_embeddings, scope = "embedding"):
+    with tf.variable_scope(scope):
+        word_encoding = tf.nn.embedding_lookup(word_embeddings, word)
+        char_encoding = tf.nn.embedding_lookup(char_embeddings, char)
         return word_encoding, char_encoding
 
 def apply_dropout(cell,dropout = 0.2, is_training = True):

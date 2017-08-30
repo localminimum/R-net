@@ -43,14 +43,18 @@ class Model(object):
         with tf.device('/cpu:0'):
             self.word_embeddings = tf.Variable(tf.constant(0.0, shape=[Params.vocab_size, Params.emb_size]),trainable=False, name="word_embeddings")
             self.word_embeddings_placeholder = tf.placeholder(tf.float32,[Params.vocab_size, Params.emb_size],"word_embeddings_placeholder")
-            self.emb_assign = self.word_embeddings.assign(self.word_embeddings_placeholder)
+            self.char_embeddings = tf.Variable(tf.constant(0.0, shape=[Params.char_vocab_size, Params.emb_size]),trainable=False, name="char_embeddings")
+            self.char_embeddings_placeholder = tf.placeholder(tf.float32,[Params.char_vocab_size, Params.emb_size],"char_embeddings_placeholder")
+            self.emb_assign = tf.group(tf.assign(self.word_embeddings, self.word_embeddings_placeholder),tf.assign(self.char_embeddings, self.char_embeddings_placeholder))
 
         self.passage_word_encoded, self.passage_char_encoded = encoding(self.passage_w,
                                                         self.passage_c,
-                                                        word_embedding = self.word_embeddings)
+                                                        word_embeddings = self.word_embeddings,
+                                                        char_embeddings = self.char_embeddings)
         self.question_word_encoded, self.question_char_encoded = encoding(self.question_w,
                                                         self.question_c,
-                                                        word_embedding = self.word_embeddings, reuse = True)
+                                                        word_embeddings = self.word_embeddings,
+                                                        char_embeddings = self.char_embeddings)
         self.passage_char_encoded = bidirectional_GRU(self.passage_char_encoded,
                                                         self.passage_c_len,
                                                         scope = "passage_char_encoding",
@@ -142,15 +146,20 @@ def debug():
 
 def main():
     model = Model(is_training = True); print("Built model")
-    glove = np.memmap(Params.data_dir + "glove.np",dtype = np.float32,mode = "r")
-    glove = np.asarray(np.reshape(glove,(Params.vocab_size,300)))
+    glove = np.memmap(Params.data_dir + "glove.np", dtype = np.float32, mode = "r")
+    glove = np.reshape(glove,(Params.vocab_size,300))
+    char_glove = np.memmap(Params.data_dir + "glove_char.np",dtype = np.float32, mode = "r")
+    char_glove = np.reshape(char_glove,(Params.char_vocab_size,300))
     with model.graph.as_default():
+	print("loading model...")
         sv = tf.train.Supervisor(logdir=Params.logdir,
                                 save_model_secs=0,
                                 global_step = model.global_step,
                                 init_op = model.init_op)
         with sv.managed_session() as sess:
-            sess.run(model.emb_assign, {model.word_embeddings_placeholder:glove})
+	    print("assign embeddings...")
+            sess.run(model.emb_assign, {model.word_embeddings_placeholder:glove, model.char_embeddings_placeholder:char_glove})
+	    print("embeddings assigned...")
             for epoch in range(1, Params.num_epochs+1):
                 if sv.should_stop(): break
                 for step in tqdm(range(model.num_batch), total = model.num_batch, ncols=70, leave=False, unit='b'):
