@@ -20,11 +20,13 @@ class Params():
     p_chars_dir = "chars_context.txt"
 
     # Training
-    debug = True # Set it to True to debug the computation graph
+    debug = False # Set it to True to debug the computation graph
     learning_rate = 1 # Adadelta doesn't require initial learning rate
     optimizer = "adadelta" # Options: ["adadelta", "adam", "gradientdescent", "adagrad"]
     batch_size = 16
     save_steps = 50 # Save the model at every 50 steps
+    clip = False # clip gradient norm
+    norm = 5.0 # global norm
 
     # Architecture
     max_len = 200 # Maximum number of words in each passage context

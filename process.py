@@ -102,7 +102,6 @@ class data_loader(object):
             os.makedirs(out_dir)
         self.data = json.load(codecs.open(file_dir,"rb","utf-8"))
         self.loop(self.data, out_dir)
-        self.ids2char = {v: k for k, v in self.c_dict.iteritems()}
         with codecs.open("dictionary.txt","wb","utf-8") as f:
             for key, value in sorted(self.w_dict.iteritems(), key=lambda (k,v): (v,k)):
                 f.write("%s: %s" % (key, value) + "\n")
