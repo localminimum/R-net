@@ -20,7 +20,7 @@ class Params():
     p_chars_dir = "chars_context.txt"
 
     # Training
-    debug = True # Set it to True to debug the computation graph
+    debug = False # Set it to True to debug the computation graph
     learning_rate = 1 # Adadelta doesn't require initial learning rate
     optimizer = "adadelta" # Options: ["adadelta", "adam", "gradientdescent", "adagrad"]
     batch_size = 16
