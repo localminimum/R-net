@@ -25,6 +25,8 @@ class Params():
     optimizer = "adadelta" # Options: ["adadelta", "adam", "gradientdescent", "adagrad"]
     batch_size = 16
     save_steps = 50 # Save the model at every 50 steps
+    clip = False # clip gradient norm
+    norm = 5.0 # global norm
 
     # Architecture
     max_len = 200 # Maximum number of words in each passage context

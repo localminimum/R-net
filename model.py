@@ -141,12 +141,15 @@ class Model(object):
 			# Use non-sparse softmax
 			self.indices_prob = tf.one_hot(self.indices, shapes[1])
 			self.mean_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels = self.indices_prob, logits = self.points_logits))
-
-			# gradient clipping by norm
 			self.optimizer = optimizer_factory[Params.optimizer]
-			gradients, variables = zip(*self.optimizer.compute_gradients(self.mean_loss))
-			gradients, _ = tf.clip_by_global_norm(gradients, 5.0)
-			self.train_op = self.optimizer.apply_gradients(zip(gradients, variables), global_step = self.global_step)
+
+			if Params.clip:
+				# gradient clipping by norm
+				gradients, variables = zip(*self.optimizer.compute_gradients(self.mean_loss))
+				gradients, _ = tf.clip_by_global_norm(gradients, Params.norm)
+				self.train_op = self.optimizer.apply_gradients(zip(gradients, variables), global_step = self.global_step)
+			else:
+				self.train_op = self.optimizer.minimize(self.mean_loss, global_step = self.global_step)
 
 	def summary(self):
 		tf.summary.scalar('mean_loss', self.mean_loss)
