@@ -168,7 +168,11 @@ def get_batch():
 
         train_ind = np.arange(indices.shape[0],dtype = np.int32)
         np.random.shuffle(train_ind)
-        ind_list = tf.convert_to_tensor(train_ind[:Params.data_size])
+
+        size = Params.data_size
+        if Params.data_size > inidices.shape[0] or Params.data_size == -1:
+            size = indices.shape
+        ind_list = tf.convert_to_tensor(train_ind[:size])
 
         # Create Queues
         ind_list = tf.train.slice_input_producer([ind_list], shuffle=True)
