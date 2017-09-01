@@ -37,7 +37,7 @@ class Model(object):
 				self.question_w_len = tf.squeeze(self.question_w_len)
 
 				self.encode_ids()
-				self.params = get_attn_params(Params.attn_size)
+				self.params = get_attn_params(Params.attn_size, initializer = tf.contrib.layers.xavier_initializer())
 				self.attention_match_rnn()
 				self.bidirectional_readout()
 				self.pointer_network()
