@@ -21,6 +21,7 @@ class Params():
 
     # Training
     debug = False # Set it to True to debug the computation graph
+    test = True
     learning_rate = 1 # Adadelta doesn't require initial learning rate
     dropout = 0.2 # dropout probability
     optimizer = "adadelta" # Options: ["adadelta", "adam", "gradientdescent", "adagrad"]

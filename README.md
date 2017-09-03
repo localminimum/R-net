@@ -5,7 +5,7 @@ Tensorflow implementation of https://www.microsoft.com/en-us/research/wp-content
 
 Training with full SQuAD dataset is currently a work in progress.
 
-The dataset used for this task is Stanford Question Answering Dataset (https://rajpurkar.github.io/SQuAD-explorer/). Pretrained GloVe embeddings are used for both words (https://nlp.stanford.edu/projects/glove/) and characters (https://github.com/minimaxir/char-embeddings/blob/master/glove.840B.300d-char.txt). 
+The dataset used for this task is Stanford Question Answering Dataset (https://rajpurkar.github.io/SQuAD-explorer/). Pretrained GloVe embeddings are used for both words (https://nlp.stanford.edu/projects/glove/) and characters (https://github.com/minimaxir/char-embeddings/blob/master/glove.840B.300d-char.txt).
 
 ## Requirements
   * NumPy
@@ -35,6 +35,10 @@ $ tensorboard --logdir=r-net:train/
 ![Alt text](/../dev/screenshots/graph.png?raw=true "Tensorboard Graph")
 
 # Note
+**02/09/17**
+One of the challenges I faced while training was to fit a minibatch of size 32 or larger into my GTX 1080. Since SQuAD dataset displayed high variance in data, higher batch size was essential in training (otherwise the model doesn't converge). Reducing GPU memory usage significantly to fit batch size of 32 and higher is a work in progress. If you have any suggestions on reducing the GPU memory usage, please put forward a pr.
+
+**27/08/17**
 As a sanity check I trained the network with 3000 independent randomly sampled question-answering pairs. With my GTX 1080, it took about 4 hours and a half for the model to get the gist of what's going on with the data. With full dataset (90,000+ pairs) we are expecting longer time for convergence.
 
 Some sort of normalization method might help speed up convergence (though the authors of the original paper didn't mention anything about the normalization).

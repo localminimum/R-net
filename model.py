@@ -8,8 +8,13 @@ from tqdm import tqdm
 from data_load import get_batch
 from params import Params
 from layers import *
+from sklearn.metrics import f1_score
 from GRU import gated_attention_GRUCell
+from evaluate import *
 import numpy as np
+from utils import *
+import cPickle as pickle
+from process import *
 
 optimizer_factory = {"adadelta":tf.train.AdadeltaOptimizer(learning_rate = Params.learning_rate, epsilon = 1e-06),
 					"adam":tf.train.AdamOptimizer(learning_rate = Params.learning_rate),
@@ -21,30 +26,33 @@ class Model(object):
 		self.is_training = is_training
 		self.graph = tf.Graph()
 		with self.graph.as_default():
-			if is_training:
-				self.global_step = tf.Variable(0, name='global_step', trainable=False)
-				data, self.num_batch = get_batch()
-				(self.passage_w,
-				self.question_w,
-				self.passage_c,
-				self.question_c,
-				self.passage_w_len,
-				self.question_w_len,
-				self.passage_c_len,
-				self.question_c_len,
-				self.indices) = data
-				self.passage_w_len = tf.squeeze(self.passage_w_len)
-				self.question_w_len = tf.squeeze(self.question_w_len)
+			self.global_step = tf.Variable(0, name='global_step', trainable=False)
+			data, self.num_batch = get_batch(is_training = is_training)
+			(self.passage_w,
+			self.question_w,
+			self.passage_c,
+			self.question_c,
+			self.passage_w_len,
+			self.question_w_len,
+			self.passage_c_len,
+			self.question_c_len,
+			self.indices) = data
+			self.passage_w_len = tf.squeeze(self.passage_w_len)
+			self.question_w_len = tf.squeeze(self.question_w_len)
 
-				self.encode_ids()
-				self.params = get_attn_params(Params.attn_size, initializer = tf.contrib.layers.xavier_initializer())
-				self.attention_match_rnn()
-				self.bidirectional_readout()
-				self.pointer_network()
+			self.encode_ids()
+			self.params = get_attn_params(Params.attn_size, initializer = tf.contrib.layers.xavier_initializer())
+			self.attention_match_rnn()
+			self.bidirectional_readout()
+			self.pointer_network()
+
+			if is_training:
 				self.loss_function()
 				self.summary()
 				self.init_op = tf.global_variables_initializer()
-				total_params()
+			else:
+				self.outputs()
+			total_params()
 
 	def encode_ids(self):
 		with tf.device('/cpu:0'):
@@ -129,6 +137,9 @@ class Model(object):
 		cell = apply_dropout(tf.contrib.rnn.GRUCell(Params.attn_size*2), is_training = self.is_training)
 		self.points_logits = pointer_net(self.final_bidirectional_outputs, self.passage_w_len, self.question_encoding, cell, params, scope = "pointer_network")
 
+	def outputs(self):
+		self.output_index = tf.argmax(self.points_logits, axis = 2)
+
 	def loss_function(self):
 		with tf.variable_scope("loss"):
 			shapes = self.passage_w.shape
@@ -165,8 +176,36 @@ class Model(object):
 		self.merged = tf.summary.merge_all()
 
 def debug():
-	model = Model(is_training = True)
+	model = Model(is_training = False)
 	print("Built model")
+
+def test():
+	model = Model(is_training = False); print("Built model")
+	dict_ = pickle.load(open(Params.data_dir + "dictionary.pkl","r"))
+	glove = np.memmap(Params.data_dir + "glove.np", dtype = np.float32, mode = "r")
+	glove = np.reshape(glove,(Params.vocab_size,300))
+	char_glove = np.memmap(Params.data_dir + "glove_char.np",dtype = np.float32, mode = "r")
+	char_glove = np.reshape(char_glove,(Params.char_vocab_size,300))
+	with model.graph.as_default():
+		sv = tf.train.Supervisor()
+		with sv.managed_session() as sess:
+			sv.saver.restore(sess, tf.train.latest_checkpoint(Params.logdir))
+			sess.run(model.emb_assign, {model.word_embeddings_placeholder:glove, model.char_embeddings_placeholder:char_glove})
+			EM = 0.0
+			f1 = 0.0
+			for step in tqdm(range(model.num_batch), total = model.num_batch, ncols=70, leave=False, unit='b'):
+				index, ground_truth, passage = sess.run([model.output_index, model.indices, model.passage_w])
+				for batch in range(Params.batch_size):
+					answer = " ".join([dict_.ind2word(a) for a in passage[batch,index[batch,0]:index[batch,1]].tolist() if len(a) == 1 else [passage[batch,index[batch,0]:index[batch,1]].tolist()]])
+					answer_ = " ".join([dict_.ind2word(a) for a in passage[batch,ground_truth[batch,0]:index[batch,1]].tolist() if len(a) == 1 else [passage[batch,ground_truth[batch,0]:index[batch,1]].tolist()]])
+					f1 += f1_score(answer,answer_)
+					EM = exact_match_score(answer,answer_)
+				f1 /= Params.batch_size
+				EM /= Params.batch_size
+			f1 /= model.num_batch
+			EM /= model.num_batch
+			print("Exact_match: {}\nf1_score: {}".format(EM,f1))
+
 
 def main():
 	model = Model(is_training = True); print("Built model")
@@ -190,8 +229,11 @@ def main():
 
 if __name__ == '__main__':
 	if Params.debug == True:
-		print("debugging...")
+		print("Debugging...")
 		debug()
+	elif Params.test == True:
+		print("Testing on dev set...")
+		test()
 	else:
 		print("Running...")
 		main()
