@@ -159,19 +159,19 @@ def load_data(dir_):
             p_char_len, q_char_len,
             indices], shapes)
 
-def get_batch():
+def get_batch(is_training = True):
     """Loads training data and put them in queues"""
     with tf.device('/cpu:0'):
-        # Training set
-        input_list, shapes = load_data(Params.train_dir)
+        # Load dataset
+        input_list, shapes = load_data(Params.train_dir if is_training else Params.dev_dir)
         indices = input_list[-1]
 
         train_ind = np.arange(indices.shape[0],dtype = np.int32)
         np.random.shuffle(train_ind)
 
         size = Params.data_size
-        if Params.data_size > inidices.shape[0] or Params.data_size == -1:
-            size = indices.shape
+        if Params.data_size > indices.shape[0] or Params.data_size == -1:
+            size = indices.shape[0]
         ind_list = tf.convert_to_tensor(train_ind[:size])
 
         # Create Queues
@@ -197,4 +197,4 @@ def get_batch():
                                 capacity=Params.batch_size*32,
                                 dynamic_pad=True)
 
-    return batch, Params.data_size // Params.batch_size
+    return batch, size // Params.batch_size
