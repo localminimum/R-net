@@ -19,17 +19,17 @@ W_h^a.shape:    (2 * attn_size, attn_size)
 W_v^Q.shape:    (attn_size, attn_size)
 '''
 
-def get_attn_params(attn_size,initializer = tf.truncated_normal_initializer()):
+def get_attn_params(attn_size,initializer = tf.truncated_normal_initializer):
     with tf.variable_scope("attention_weights"):
-        params = {"W_u_Q":tf.get_variable("W_u_Q",dtype = tf.float32, shape = (2 * attn_size, attn_size), initializer = initializer),
-                "W_u_P":tf.get_variable("W_u_P",dtype = tf.float32, shape = (2 * attn_size, attn_size), initializer = initializer),
-                "W_v_P":tf.get_variable("W_v_P",dtype = tf.float32, shape = (attn_size, attn_size), initializer = initializer),
-                "W_g":tf.get_variable("W_g",dtype = tf.float32, shape = (4 * attn_size, 4 * attn_size), initializer = initializer),
-                "W_h_P":tf.get_variable("W_h_P",dtype = tf.float32, shape = (2 * attn_size, attn_size), initializer = initializer),
-                "W_v_Phat":tf.get_variable("W_v_Phat",dtype = tf.float32, shape = (2 * attn_size, attn_size), initializer = initializer),
-                "W_h_a":tf.get_variable("W_h_a",dtype = tf.float32, shape = (2 * attn_size, attn_size), initializer = initializer),
-                "W_v_Q":tf.get_variable("W_v_Q",dtype = tf.float32, shape = (attn_size, attn_size), initializer = initializer),
-                "v":tf.get_variable("v", dtype = tf.float32, shape = attn_size, initializer = initializer)}
+        params = {"W_u_Q":tf.get_variable("W_u_Q",dtype = tf.float32, shape = (2 * attn_size, attn_size), initializer = initializer()),
+                "W_u_P":tf.get_variable("W_u_P",dtype = tf.float32, shape = (2 * attn_size, attn_size), initializer = initializer()),
+                "W_v_P":tf.get_variable("W_v_P",dtype = tf.float32, shape = (attn_size, attn_size), initializer = initializer()),
+                "W_g":tf.get_variable("W_g",dtype = tf.float32, shape = (4 * attn_size, 4 * attn_size), initializer = initializer()),
+                "W_h_P":tf.get_variable("W_h_P",dtype = tf.float32, shape = (2 * attn_size, attn_size), initializer = initializer()),
+                "W_v_Phat":tf.get_variable("W_v_Phat",dtype = tf.float32, shape = (2 * attn_size, attn_size), initializer = initializer()),
+                "W_h_a":tf.get_variable("W_h_a",dtype = tf.float32, shape = (2 * attn_size, attn_size), initializer = initializer()),
+                "W_v_Q":tf.get_variable("W_v_Q",dtype = tf.float32, shape = (attn_size, attn_size), initializer = initializer()),
+                "v":tf.get_variable("v", dtype = tf.float32, shape = attn_size, initializer = initializer())}
         return params
 
 def encoding(word, char, word_embeddings, char_embeddings, scope = "embedding"):
@@ -46,7 +46,7 @@ def apply_dropout(inputs, dropout = Params.dropout, is_training = True):
     else:
         return tf.nn.dropout(inputs, keep_prob = 1.0 - dropout)
 
-def bidirectional_GRU(inputs, inputs_len, cell = None, units = 75, layers = 1, scope = "Bidirectional_GRU", output = 0, is_training = True, reuse = None):
+def bidirectional_GRU(inputs, inputs_len, cell = None, units = Params.attn_size, layers = 1, scope = "Bidirectional_GRU", output = 0, is_training = True, reuse = None):
     with tf.variable_scope(scope, reuse = reuse):
         if cell is not None:
             (cell_fw, cell_bw) = cell
@@ -89,15 +89,19 @@ def pointer_net(passage, passage_len, question, cell, params, scope = "pointer_n
         p2_logits = tf.reshape(scores,(shapes[0],shapes[1]))
         return tf.stack((p1_logits,p2_logits),1)
 
-def attention_rnn(inputs, inputs_len, units, attn_cell, scope = "gated_attention_rnn", is_training = True):
+def attention_rnn(inputs, inputs_len, units, attn_cell, bidirection = True, scope = "gated_attention_rnn", is_training = True):
     with tf.variable_scope(scope):
-        (cell_fw, cell_bw) = attn_cell
-        outputs = bidirectional_GRU(inputs,
-                                    inputs_len,
-                                    cell = (cell_fw,cell_bw),
-                                    scope = scope + "_bidirectional",
-                                    output = 0,
-                                    is_training = is_training)
+        if bidirection:
+            outputs = bidirectional_GRU(inputs,
+                                        inputs_len,
+                                        cell = attn_cell,
+                                        scope = scope + "_bidirectional",
+                                        output = 0,
+                                        is_training = is_training)
+        else:
+            outputs, _ = tf.nn.dynamic_rnn(attn_cell, inputs,
+                                            sequence_length = inputs_len,
+                                            dtype=tf.float32)
         return outputs
 
 def question_pooling(memory, units, weights, scope = "question_pooling"):
@@ -125,6 +129,7 @@ def gated_attention(memory, inputs, states, units, params, self_matching = False
             inputs_ = tf.concat((inputs_,states),axis = 2) # The order matters
 
         inputs_ = tf.reshape(inputs_,(shapes[0]*shapes[1],-1))
+        # print(inputs_)
         scores = attention(inputs_, units, weights)
         scores = tf.reshape(scores,(shapes[0],shapes[1],1))
         attention_pool = tf.reduce_sum(scores * memory, 1)

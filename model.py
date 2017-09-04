@@ -8,11 +8,9 @@ from tqdm import tqdm
 from data_load import get_batch
 from params import Params
 from layers import *
-from sklearn.metrics import f1_score
 from GRU import gated_attention_GRUCell
 from evaluate import *
 import numpy as np
-from utils import *
 import cPickle as pickle
 from process import *
 
@@ -41,7 +39,7 @@ class Model(object):
 			self.question_w_len = tf.squeeze(self.question_w_len)
 
 			self.encode_ids()
-			self.params = get_attn_params(Params.attn_size, initializer = tf.contrib.layers.xavier_initializer())
+			self.params = get_attn_params(Params.attn_size, initializer = tf.contrib.layers.xavier_initializer)
 			self.attention_match_rnn()
 			self.bidirectional_readout()
 			self.pointer_network()
@@ -110,14 +108,17 @@ class Model(object):
 								self.params["W_v_Phat"]),axis = 0),
 								self.params["v"]),self.params["W_g"])]
 		for i in range(2):
-			# cell_fw = MultiRNNCell([apply_dropout(gated_attention_GRUCell(Params.attn_size, memory = memory, params = params[i]),is_training = self.is_training) for _ in range(Params.num_layers)])
-			# cell_bw = MultiRNNCell([apply_dropout(gated_attention_GRUCell(Params.attn_size, memory = memory, params = params[i]),is_training = self.is_training) for _ in range(Params.num_layers)])
-			cell_fw = gated_attention_GRUCell(Params.attn_size, memory = memory, params = params[i], self_matching = True if i == 1 else False)
-			cell_bw = gated_attention_GRUCell(Params.attn_size, memory = memory, params = params[i], self_matching = True if i == 1 else False)
+			if scopes[i] == "question_passage_matching":
+				cell_fw = gated_attention_GRUCell(Params.attn_size, memory = memory, params = params[i], self_matching = False)
+				cell_bw = gated_attention_GRUCell(Params.attn_size, memory = memory, params = params[i], self_matching = False)
+				cell = (cell_fw, cell_bw)
+			elif scopes[i] == "self_matching":
+				cell = gated_attention_GRUCell(Params.attn_size, memory = memory, params = params[i], self_matching = True)
 			inputs = attention_rnn(inputs,
 									self.passage_w_len,
 									Params.attn_size,
-									(cell_fw,cell_bw),
+									cell,
+									bidirection = True if i == 0 else False,
 									scope = scopes[i])
 			memory = inputs # self_matching
 			inputs = apply_dropout(inputs, is_training = self.is_training)
@@ -126,7 +127,7 @@ class Model(object):
 	def bidirectional_readout(self):
 		self.final_bidirectional_outputs = bidirectional_GRU(self.self_matching_output,
 			self.passage_w_len,
-			layers = Params.num_layers,
+			# layers = Params.num_layers,
 			scope = "bidirectional_readout",
 			output = 0,
 			is_training = self.is_training)
@@ -160,10 +161,17 @@ class Model(object):
 				gradients, _ = tf.clip_by_global_norm(gradients, Params.norm)
 				self.train_op = self.optimizer.apply_gradients(zip(gradients, variables), global_step = self.global_step)
 			else:
-				self.train_op = self.optimizer.minimize(self.mean_loss, global_step = self.global_step)
+				self.train_op = self.optimizer.minimize(self.mean_loss, global_step = self.global_step)#, aggregation_method=tf.AggregationMethod.EXPERIMENTAL_ACCUMULATE_N)
 
 	def summary(self):
+		self.F1 = tf.Variable(tf.constant(0.0, shape=(), dtype = tf.float32),trainable=False, name="F1")
+		self.F1_placeholder = tf.placeholder(tf.float32, shape = (), name = "F1_placeholder")
+		self.EM = tf.Variable(tf.constant(0.0, shape=(), dtype = tf.float32),trainable=False, name="EM")
+		self.EM_placeholder = tf.placeholder(tf.float32, shape = (), name = "EM_placeholder")
+		self.metric_assign = tf.group(tf.assign(self.F1, self.F1_placeholder),tf.assign(self.EM, self.EM_placeholder))
 		tf.summary.scalar('mean_loss', self.mean_loss)
+		tf.summary.scalar("F1",self.F1)
+		tf.summary.scalar("EM",self.EM)
 		tf.summary.scalar('passage_word_encoded',tf.reduce_mean(self.passage_word_encoded))
 		tf.summary.scalar('passage_char_encoded',tf.reduce_mean(self.passage_char_encoded))
 		tf.summary.scalar('question_word_encoded',tf.reduce_mean(self.question_word_encoded))
@@ -183,42 +191,38 @@ def test():
 	model = Model(is_training = False); print("Built model")
 	dict_ = pickle.load(open(Params.data_dir + "dictionary.pkl","r"))
 	glove = np.memmap(Params.data_dir + "glove.np", dtype = np.float32, mode = "r")
-	glove = np.reshape(glove,(Params.vocab_size,300))
+	glove = np.reshape(glove,(Params.vocab_size,Params.emb_size))
 	char_glove = np.memmap(Params.data_dir + "glove_char.np",dtype = np.float32, mode = "r")
-	char_glove = np.reshape(char_glove,(Params.char_vocab_size,300))
+	char_glove = np.reshape(char_glove,(Params.char_vocab_size,Params.emb_size))
 	with model.graph.as_default():
 		sv = tf.train.Supervisor()
 		with sv.managed_session() as sess:
 			sv.saver.restore(sess, tf.train.latest_checkpoint(Params.logdir))
 			sess.run(model.emb_assign, {model.word_embeddings_placeholder:glove, model.char_embeddings_placeholder:char_glove})
-			EM = 0.0
-			f1 = 0.0
+			EM, f1 = 0.0, 0.0
 			for step in tqdm(range(model.num_batch), total = model.num_batch, ncols=70, leave=False, unit='b'):
 				index, ground_truth, passage = sess.run([model.output_index, model.indices, model.passage_w])
 				for batch in range(Params.batch_size):
-					answer = " ".join([dict_.ind2word(a) for a in passage[batch,index[batch,0]:index[batch,1]].tolist() if len(a) == 1 else [passage[batch,index[batch,0]:index[batch,1]].tolist()]])
-					answer_ = " ".join([dict_.ind2word(a) for a in passage[batch,ground_truth[batch,0]:index[batch,1]].tolist() if len(a) == 1 else [passage[batch,ground_truth[batch,0]:index[batch,1]].tolist()]])
-					f1 += f1_score(answer,answer_)
-					EM = exact_match_score(answer,answer_)
-				f1 /= Params.batch_size
-				EM /= Params.batch_size
-			f1 /= model.num_batch
-			EM /= model.num_batch
-			print("Exact_match: {}\nf1_score: {}".format(EM,f1))
-
+					f1_, EM_ = f1_and_EM(index[batch], ground_truth[batch], passage[batch], dict_)
+			f1 /= float(model.num_batch * Params.batch_size)
+			EM /= float(model.num_batch * Params.batch_size)
+			print("Exact_match: {}\nF1_score: {}".format(EM,f1))
 
 def main():
 	model = Model(is_training = True); print("Built model")
+	dict_ = pickle.load(open(Params.data_dir + "dictionary.pkl","r"))
 	glove = np.memmap(Params.data_dir + "glove.np", dtype = np.float32, mode = "r")
 	glove = np.reshape(glove,(Params.vocab_size,300))
 	char_glove = np.memmap(Params.data_dir + "glove_char.np",dtype = np.float32, mode = "r")
 	char_glove = np.reshape(char_glove,(Params.char_vocab_size,300))
 	with model.graph.as_default():
+		config = tf.ConfigProto()
+		config.gpu_options.allow_growth = True
 		sv = tf.train.Supervisor(logdir=Params.logdir,
 								save_model_secs=0,
 								global_step = model.global_step,
 								init_op = model.init_op)
-		with sv.managed_session() as sess:
+		with sv.managed_session(config = config) as sess:
 			sess.run(model.emb_assign, {model.word_embeddings_placeholder:glove, model.char_embeddings_placeholder:char_glove})
 			for epoch in range(1, Params.num_epochs+1):
 				if sv.should_stop(): break
@@ -226,6 +230,17 @@ def main():
 					sess.run(model.train_op)
 					if step % Params.save_steps == 0:
 						sv.saver.save(sess, Params.logdir + '/model_epoch_%d_step_%d'%(epoch,step))
+						index, ground_truth, passage = sess.run([model.points_logits, model.indices, model.passage_w])
+						index = np.argmax(index, axis = 2)
+						F1, EM = 0.0, 0.0
+						for batch in range(Params.batch_size):
+							f1, em = f1_and_EM(index[batch], ground_truth[batch], passage[batch], dict_)
+							F1 += f1
+							EM += em
+						F1 /= float(Params.batch_size)
+						EM /= float(Params.batch_size)
+						sess.run(model.metric_assign,{model.F1_placeholder: F1, model.EM_placeholder: EM})
+						print("Exact_match: {}\nF1_score: {}".format(EM,F1))
 
 if __name__ == '__main__':
 	if Params.debug == True:
@@ -235,5 +250,5 @@ if __name__ == '__main__':
 		print("Testing on dev set...")
 		test()
 	else:
-		print("Running...")
+		print("Training...")
 		main()
