@@ -99,14 +99,22 @@ class Model(object):
 		memory = self.question_encoding
 		inputs = self.passage_encoding
 		scopes = ["question_passage_matching", "self_matching"]
-		params = [((tf.concat((self.params["W_u_Q"],
-								self.params["W_u_P"],
-								self.params["W_v_P"]),axis = 0),
-								self.params["v"]),self.params["W_g"]),
-					((tf.concat((self.params["W_v_P"],
-								self.params["W_v_P"],
-								self.params["W_v_Phat"]),axis = 0),
-								self.params["v"]),self.params["W_g"])]
+		params = [([[self.params["W_u_Q"],
+					self.params["W_u_P"],
+					self.params["W_v_P"]],
+					self.params["v"]],self.params["W_g"]),
+				([[tf.concat((self.params["W_v_P"],
+					self.params["W_v_P"]),axis = 0),
+					self.params["W_v_Phat"]],
+					self.params["v"]],self.params["W_g"])]
+		# params = [((tf.concat((self.params["W_u_Q"],
+		# 						self.params["W_u_P"],
+		# 						self.params["W_v_P"]),axis = 0),
+		# 						self.params["v"]),self.params["W_g"]),
+		# 			((tf.concat((self.params["W_v_P"],
+		# 						self.params["W_v_P"],
+		# 						self.params["W_v_Phat"]),axis = 0),
+		# 						self.params["v"]),self.params["W_g"])]
 		for i in range(2):
 			if scopes[i] == "question_passage_matching":
 				cell_fw = gated_attention_GRUCell(Params.attn_size, memory = memory, params = params[i], self_matching = False)
@@ -133,8 +141,8 @@ class Model(object):
 			is_training = self.is_training)
 
 	def pointer_network(self):
-		params = ((tf.concat((self.params["W_u_Q"],self.params["W_v_Q"]),axis = 0),self.params["v"]),
-					(tf.concat((self.params["W_h_P"],self.params["W_h_a"]),axis = 0),self.params["v"]))
+		params = (([self.params["W_u_Q"],self.params["W_v_Q"]],self.params["v"]),
+					([self.params["W_h_P"],self.params["W_h_a"]],self.params["v"]))
 		cell = apply_dropout(tf.contrib.rnn.GRUCell(Params.attn_size*2), is_training = self.is_training)
 		self.points_logits = pointer_net(self.final_bidirectional_outputs, self.passage_w_len, self.question_encoding, cell, params, scope = "pointer_network")
 
@@ -203,8 +211,10 @@ def test():
 			for step in tqdm(range(model.num_batch), total = model.num_batch, ncols=70, leave=False, unit='b'):
 				index, ground_truth, passage = sess.run([model.output_index, model.indices, model.passage_w])
 				for batch in range(Params.batch_size):
-					f1_, EM_ = f1_and_EM(index[batch], ground_truth[batch], passage[batch], dict_)
-			f1 /= float(model.num_batch * Params.batch_size)
+					f1, em = f1_and_EM(index[batch], ground_truth[batch], passage[batch], dict_)
+					F1 += f1
+					EM += em
+			F1 /= float(model.num_batch * Params.batch_size)
 			EM /= float(model.num_batch * Params.batch_size)
 			print("Exact_match: {}\nF1_score: {}".format(EM,f1))
 
