@@ -20,15 +20,19 @@ class Params():
     p_chars_dir = "chars_context.txt"
 
     # Training
-    debug = False # Set it to True to debug the computation graph
+    debug = True # Set it to True to debug the computation graph
     test = False # Test the model on dev-set
-    learning_rate = 1 # Adadelta doesn't require initial learning rate
     dropout = 0.2 # dropout probability
     optimizer = "adadelta" # Options: ["adadelta", "adam", "gradientdescent", "adagrad"]
-    batch_size = 56 # Size of the mini-batch for training
+    batch_size = 50 # Size of the mini-batch for training
     save_steps = 50 # Save the model at every 50 steps
     clip = False # clip gradient norm
     norm = 5.0 # global norm
+    # Change the hyperparameters of your learning algorithms here
+    opt_arg = {'adadelta':{'learning_rate':1, 'rho': 0.95, 'epsilon':1e-6},
+                'adam':{'learning_rate':1e-3, 'beta1':0.9, 'beta2':0.999, 'epsilon':1e-8},
+                'gradientdescent':{'learning_rate':1},
+                'adagrad':{'learning_rate':1}}
 
     # Architecture
     max_len = 200 # Maximum number of words in each passage context

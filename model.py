@@ -14,10 +14,10 @@ import numpy as np
 import cPickle as pickle
 from process import *
 
-optimizer_factory = {"adadelta":tf.train.AdadeltaOptimizer(learning_rate = Params.learning_rate, epsilon = 1e-06),
-					"adam":tf.train.AdamOptimizer(learning_rate = Params.learning_rate),
-					"gradientdescent":tf.train.GradientDescentOptimizer(learning_rate = Params.learning_rate),
-					"adagrad":tf.train.AdagradOptimizer(learning_rate = Params.learning_rate)}
+optimizer_factory = {"adadelta":tf.train.AdadeltaOptimizer,
+					"adam":tf.train.AdamOptimizer,
+					"gradientdescent":tf.train.GradientDescentOptimizer,
+					"adagrad":tf.train.AdagradOptimizer}
 
 class Model(object):
 	def __init__(self,is_training = True):
@@ -60,14 +60,17 @@ class Model(object):
 			self.word_embeddings_placeholder = tf.placeholder(tf.float32,[Params.vocab_size, Params.emb_size],"word_embeddings_placeholder")
 			self.emb_assign = tf.group(tf.assign(self.word_embeddings, self.word_embeddings_placeholder),tf.assign(self.char_embeddings, self.char_embeddings_placeholder))
 
+		# Embed the question and passage information for word and character tokens
 		self.passage_word_encoded, self.passage_char_encoded = encoding(self.passage_w,
 														self.passage_c,
 														word_embeddings = self.word_embeddings,
-														char_embeddings = self.char_embeddings)
+														char_embeddings = self.char_embeddings,
+														scope = "passage_embeddings")
 		self.question_word_encoded, self.question_char_encoded = encoding(self.question_w,
 														self.question_c,
 														word_embeddings = self.word_embeddings,
-														char_embeddings = self.char_embeddings)
+														char_embeddings = self.char_embeddings,
+														scope = "question_embeddings")
 		self.passage_char_encoded = bidirectional_GRU(self.passage_char_encoded,
 														self.passage_c_len,
 														scope = "passage_char_encoding",
@@ -122,7 +125,7 @@ class Model(object):
 										cell,
 										bidirection = True,
 										scope = scopes[i])
-				memory = inputs # self_matching
+				memory = inputs # self matching (attention over itself)
 				inputs = apply_dropout(inputs, is_training = self.is_training)
 			self.self_matching_output = inputs
 
@@ -155,7 +158,7 @@ class Model(object):
 			# Use non-sparse softmax
 			self.indices_prob = tf.one_hot(self.indices, shapes[1])
 			self.mean_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels = self.indices_prob, logits = self.points_logits))
-			self.optimizer = optimizer_factory[Params.optimizer]
+			self.optimizer = optimizer_factory[Params.optimizer](Params.opt_arg[Params.optimizer])
 
 			if Params.clip:
 				# gradient clipping by norm
@@ -163,7 +166,7 @@ class Model(object):
 				gradients, _ = tf.clip_by_global_norm(gradients, Params.norm)
 				self.train_op = self.optimizer.apply_gradients(zip(gradients, variables), global_step = self.global_step)
 			else:
-				self.train_op = self.optimizer.minimize(self.mean_loss, global_step = self.global_step)#, aggregation_method=tf.AggregationMethod.EXPERIMENTAL_ACCUMULATE_N)
+				self.train_op = self.optimizer.minimize(self.mean_loss, global_step = self.global_step)
 
 	def summary(self):
 		self.F1 = tf.Variable(tf.constant(0.0, shape=(), dtype = tf.float32),trainable=False, name="F1")
@@ -172,16 +175,8 @@ class Model(object):
 		self.EM_placeholder = tf.placeholder(tf.float32, shape = (), name = "EM_placeholder")
 		self.metric_assign = tf.group(tf.assign(self.F1, self.F1_placeholder),tf.assign(self.EM, self.EM_placeholder))
 		tf.summary.scalar('mean_loss', self.mean_loss)
-		tf.summary.scalar("F1",self.F1)
-		tf.summary.scalar("EM",self.EM)
-		tf.summary.scalar('passage_word_encoded',tf.reduce_mean(self.passage_word_encoded))
-		tf.summary.scalar('passage_char_encoded',tf.reduce_mean(self.passage_char_encoded))
-		tf.summary.scalar('question_word_encoded',tf.reduce_mean(self.question_word_encoded))
-		tf.summary.scalar('question_char_encoded',tf.reduce_mean(self.question_char_encoded))
-		tf.summary.scalar('question_encoding',tf.reduce_mean(self.question_encoding))
-		tf.summary.scalar('passage_encoding',tf.reduce_mean(self.passage_encoding))
-		tf.summary.scalar('self_matching',tf.reduce_mean(self.self_matching_output))
-		tf.summary.scalar('pointer',tf.reduce_mean(self.points_logits))
+		tf.summary.scalar("training_F1_Score",self.F1)
+		tf.summary.scalar("training_Exact_Match",self.EM)
 		tf.summary.scalar('learning_rate', Params.learning_rate)
 		self.merged = tf.summary.merge_all()
 
