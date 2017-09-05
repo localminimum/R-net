@@ -7,10 +7,10 @@ class Params():
     data_dir = "./data/"
     train_dir = data_dir + "trainset/"
     dev_dir = data_dir + "devset/"
-    logdir = "./train/draw"
-    glove_dir = "glove.840B.300d.txt"
-    glove_char = "glove.840B.300d.char.txt"
-    coreNLP_dir = "./stanford-corenlp-full-2017-06-09"
+    logdir = "./train/train_fulldata"
+    glove_dir = "glove.840B.300d.txt" # Glove file name (If you want to use your own glove, replace the file name here)
+    glove_char = "glove.840B.300d.char.txt" # Character Glove file name
+    coreNLP_dir = "./stanford-corenlp-full-2017-06-09" # Directory to pycorenlp wrapper
 
     # Data dir
     target_dir = "indices.txt"
@@ -21,11 +21,11 @@ class Params():
 
     # Training
     debug = False # Set it to True to debug the computation graph
-    test = False
+    test = False # Test the model on dev-set
     learning_rate = 1 # Adadelta doesn't require initial learning rate
     dropout = 0.2 # dropout probability
     optimizer = "adadelta" # Options: ["adadelta", "adam", "gradientdescent", "adagrad"]
-    batch_size = 50
+    batch_size = 56 # Size of the mini-batch for training
     save_steps = 50 # Save the model at every 50 steps
     clip = False # clip gradient norm
     norm = 5.0 # global norm
