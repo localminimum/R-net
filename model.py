@@ -96,49 +96,43 @@ class Model(object):
 													is_training = self.is_training)
 
 	def attention_match_rnn(self):
-		memory = self.question_encoding
-		inputs = self.passage_encoding
-		scopes = ["question_passage_matching", "self_matching"]
-		params = [([[self.params["W_u_Q"],
-					self.params["W_u_P"],
-					self.params["W_v_P"]],
-					self.params["v"]],self.params["W_g"]),
-				([[tf.concat((self.params["W_v_P"],
-					self.params["W_v_P"]),axis = 0),
-					self.params["W_v_Phat"]],
-					self.params["v"]],self.params["W_g"])]
-		# params = [((tf.concat((self.params["W_u_Q"],
-		# 						self.params["W_u_P"],
-		# 						self.params["W_v_P"]),axis = 0),
-		# 						self.params["v"]),self.params["W_g"]),
-		# 			((tf.concat((self.params["W_v_P"],
-		# 						self.params["W_v_P"],
-		# 						self.params["W_v_Phat"]),axis = 0),
-		# 						self.params["v"]),self.params["W_g"])]
-		for i in range(2):
-			if scopes[i] == "question_passage_matching":
-				cell_fw = gated_attention_GRUCell(Params.attn_size, memory = memory, params = params[i], self_matching = False)
-				cell_bw = gated_attention_GRUCell(Params.attn_size, memory = memory, params = params[i], self_matching = False)
+		with tf.variable_scope("attention_match_rnn"):
+			memory = self.question_encoding
+			inputs = self.passage_encoding
+			scopes = ["question_passage_matching", "self_matching"]
+			params = [([[self.params["W_u_Q"],
+						self.params["W_u_P"],
+						self.params["W_v_P"]],
+						self.params["v"]],self.params["W_g"]),
+					([[tf.concat((self.params["W_v_P"],
+						self.params["W_v_P"]),axis = 0),
+						self.params["W_v_Phat"]],
+						self.params["v"]],self.params["W_g"])]
+			for i in range(2):
+				if scopes[i] == "question_passage_matching":
+					cell_fw = gated_attention_GRUCell(Params.attn_size, memory = memory, params = params[i], self_matching = False)
+					cell_bw = gated_attention_GRUCell(Params.attn_size, memory = memory, params = params[i], self_matching = False)
+				elif scopes[i] == "self_matching":
+					cell_fw = gated_attention_GRUCell(Params.attn_size, memory = memory, params = params[i], self_matching = True)
+					cell_bw = gated_attention_GRUCell(Params.attn_size, memory = memory, params = params[i], self_matching = True)
 				cell = (cell_fw, cell_bw)
-			elif scopes[i] == "self_matching":
-				cell = gated_attention_GRUCell(Params.attn_size, memory = memory, params = params[i], self_matching = True)
-			inputs = attention_rnn(inputs,
-									self.passage_w_len,
-									Params.attn_size,
-									cell,
-									bidirection = True if i == 0 else False,
-									scope = scopes[i])
-			memory = inputs # self_matching
-			inputs = apply_dropout(inputs, is_training = self.is_training)
-		self.self_matching_output = inputs
+				inputs = attention_rnn(inputs,
+										self.passage_w_len,
+										Params.attn_size,
+										cell,
+										bidirection = True,
+										scope = scopes[i])
+				memory = inputs # self_matching
+				inputs = apply_dropout(inputs, is_training = self.is_training)
+			self.self_matching_output = inputs
 
 	def bidirectional_readout(self):
 		self.final_bidirectional_outputs = bidirectional_GRU(self.self_matching_output,
-			self.passage_w_len,
-			# layers = Params.num_layers,
-			scope = "bidirectional_readout",
-			output = 0,
-			is_training = self.is_training)
+															self.passage_w_len,
+															layers = Params.num_layers,
+															scope = "bidirectional_readout",
+															output = 0,
+															is_training = self.is_training)
 
 	def pointer_network(self):
 		params = (([self.params["W_u_Q"],self.params["W_v_Q"]],self.params["v"]),
@@ -207,7 +201,7 @@ def test():
 		with sv.managed_session() as sess:
 			sv.saver.restore(sess, tf.train.latest_checkpoint(Params.logdir))
 			sess.run(model.emb_assign, {model.word_embeddings_placeholder:glove, model.char_embeddings_placeholder:char_glove})
-			EM, f1 = 0.0, 0.0
+			EM, F1 = 0.0, 0.0
 			for step in tqdm(range(model.num_batch), total = model.num_batch, ncols=70, leave=False, unit='b'):
 				index, ground_truth, passage = sess.run([model.output_index, model.indices, model.passage_w])
 				for batch in range(Params.batch_size):
@@ -216,7 +210,7 @@ def test():
 					EM += em
 			F1 /= float(model.num_batch * Params.batch_size)
 			EM /= float(model.num_batch * Params.batch_size)
-			print("Exact_match: {}\nF1_score: {}".format(EM,f1))
+			print("Exact_match: {}\nF1_score: {}".format(EM,F1))
 
 def main():
 	model = Model(is_training = True); print("Built model")
@@ -250,7 +244,7 @@ def main():
 						F1 /= float(Params.batch_size)
 						EM /= float(Params.batch_size)
 						sess.run(model.metric_assign,{model.F1_placeholder: F1, model.EM_placeholder: EM})
-						print("Exact_match: {}\nF1_score: {}".format(EM,F1))
+						print("\nExact_match: {}\nF1_score: {}".format(EM,F1))
 
 if __name__ == '__main__':
 	if Params.debug == True:

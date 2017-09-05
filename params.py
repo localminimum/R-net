@@ -7,7 +7,7 @@ class Params():
     data_dir = "./data/"
     train_dir = data_dir + "trainset/"
     dev_dir = data_dir + "devset/"
-    logdir = "./train/train"
+    logdir = "./train/draw"
     glove_dir = "glove.840B.300d.txt"
     glove_char = "glove.840B.300d.char.txt"
     coreNLP_dir = "./stanford-corenlp-full-2017-06-09"
@@ -25,7 +25,7 @@ class Params():
     learning_rate = 1 # Adadelta doesn't require initial learning rate
     dropout = 0.2 # dropout probability
     optimizer = "adadelta" # Options: ["adadelta", "adam", "gradientdescent", "adagrad"]
-    batch_size = 64
+    batch_size = 50
     save_steps = 50 # Save the model at every 50 steps
     clip = False # clip gradient norm
     norm = 5.0 # global norm
