@@ -129,7 +129,7 @@ def load_data(dir_):
     # Get max length to pad
     p_max_word = np.max(p_word_len)
     p_max_char = max_value(p_char_len)
-    q_max_word = np.max(q_word_len)
+    q_max_word = Params.max_q_len#np.max(q_word_len)
     q_max_char = max_value(q_char_len)
 
     # pad_data
@@ -187,12 +187,12 @@ def get_batch(is_training = True):
         data = get_data(inputs=ind_list,
                         dtypes=[np.int32]*9,
                         capacity=Params.batch_size*32,
-                        num_threads=8)
+                        num_threads=6)
 
         # create batch queues
         batch = tf.train.batch(data,
                                 shapes=shapes,
-                                num_threads=8,
+                                num_threads=6,
                                 batch_size=Params.batch_size,
                                 capacity=Params.batch_size*32,
                                 dynamic_pad=True)

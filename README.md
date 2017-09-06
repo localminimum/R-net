@@ -8,6 +8,7 @@ The dataset used for this task is Stanford Question Answering Dataset (https://r
 ## Requirements
   * Python2.7
   * NumPy
+  * nltk
   * tqdm
   * TensorFlow == 1.2
 
@@ -19,7 +20,7 @@ $ bash setup.sh
 $ python process.py --process True
 ```
 
-# Training / Testing / Debug
+# Training / Testing / Debugging
 You can change the hyperparameters from params.py file to fit the model in your GPU. To train the model, run the following line.
 ```shell
 $ python model.py
@@ -35,7 +36,7 @@ $ tensorboard --logdir=r-net:train/
 
 # Log
 **05/09/17**
-After rewriting some part of the architectures, the model converges with full dataset and it takes about 20 hours to reach F1/EM=67/60 on training set and 40/30 on dev set. with batch size of 54. Reproducing the results obtained by R-Net in the original paper is a new work in progress.
+After rewriting the architectures, the model converges with full dataset and it takes about 20 hours to reach F1/EM=67/60 on training set and 40/30 on dev set. with batch size of 54. Reproducing the results obtained by R-Net in the original paper is a new work in progress.
 
 **02/09/17**
 One of the challenges I faced while training was to fit a minibatch of size 32 or larger into my GTX 1080. Since SQuAD dataset displayed high variance in data, higher batch size was essential in training (otherwise the model doesn't converge). Reducing GPU memory usage significantly to fit batch size of 32 and higher is a work in progress. If you have any suggestions on reducing the GPU memory usage, please put forward a pr.
