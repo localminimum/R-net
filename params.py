@@ -20,7 +20,7 @@ class Params():
     p_chars_dir = "chars_context.txt"
 
     # Training
-    debug = True # Set it to True to debug the computation graph
+    debug = False # Set it to True to debug the computation graph
     test = False # Test the model on dev-set
     dropout = 0.2 # dropout probability
     optimizer = "adadelta" # Options: ["adadelta", "adam", "gradientdescent", "adagrad"]
