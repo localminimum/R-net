@@ -158,7 +158,7 @@ class Model(object):
 			# Use non-sparse softmax
 			self.indices_prob = tf.one_hot(self.indices, shapes[1])
 			self.mean_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels = self.indices_prob, logits = self.points_logits))
-			self.optimizer = optimizer_factory[Params.optimizer](Params.opt_arg[Params.optimizer])
+			self.optimizer = optimizer_factory[Params.optimizer](**Params.opt_arg[Params.optimizer])
 
 			if Params.clip:
 				# gradient clipping by norm
@@ -177,11 +177,11 @@ class Model(object):
 		tf.summary.scalar('mean_loss', self.mean_loss)
 		tf.summary.scalar("training_F1_Score",self.F1)
 		tf.summary.scalar("training_Exact_Match",self.EM)
-		tf.summary.scalar('learning_rate', Params.learning_rate)
+		tf.summary.scalar('learning_rate', Params.opt_arg[Params.optimizer]['learning_rate'])
 		self.merged = tf.summary.merge_all()
 
 def debug():
-	model = Model(is_training = False)
+	model = Model(is_training = True)
 	print("Built model")
 
 def test():
