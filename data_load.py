@@ -187,12 +187,12 @@ def get_batch(is_training = True):
         data = get_data(inputs=ind_list,
                         dtypes=[np.int32]*9,
                         capacity=Params.batch_size*32,
-                        num_threads=8)
+                        num_threads=6)
 
         # create batch queues
         batch = tf.train.batch(data,
                                 shapes=shapes,
-                                num_threads=8,
+                                num_threads=6,
                                 batch_size=Params.batch_size,
                                 capacity=Params.batch_size*32,
                                 dynamic_pad=True)
