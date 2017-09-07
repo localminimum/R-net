@@ -134,11 +134,11 @@ class data_loader(object):
                     if start_i == -1:
                         self.invalid_q += 1
                         continue
-                    write_file([str(start_i),str(finish_i)],dir_ + "indices.txt","\n")
-                    write_file(words,dir_ + "words_questions.txt","\n")
-                    write_file(chars,dir_ + "chars_questions.txt","\n")
-                    write_file(words_c,dir_ + "words_context.txt")
-                    write_file(chars_c,dir_ + "chars_context.txt")
+                    write_file([str(start_i),str(finish_i)],dir_ + Params.target_dir)
+                    write_file(words,dir_ + Params.q_word_dir)
+                    write_file(chars,dir_ + Params.q_chars_dir)
+                    write_file(words_c,dir_ + Params.p_word_dir)
+                    write_file(chars_c,dir_ + Params.p_chars_dir)
 
     def process_word(self,line):
         for word in splitted_line:
@@ -328,8 +328,10 @@ def main():
     	loader.process_json(Params.data_dir + "train-v1.1.json", out_dir = Params.train_dir)
     	loader.process_json(Params.data_dir + "dev-v1.1.json", out_dir = Params.dev_dir)
     	pickle.dump(loader, dictionary, pickle.HIGHEST_PROTOCOL)
+    print("Tokenizing completed successfully")
     load_glove(Params.glove_dir,"glove",vocab_size = Params.vocab_size)
     load_glove(Params.glove_char,"glove_char", vocab_size = Params.char_vocab_size)
+    print("Processing completed successfully")
 
 if __name__ == "__main__":
     main()

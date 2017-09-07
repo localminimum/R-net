@@ -15,9 +15,9 @@ import cPickle as pickle
 from process import *
 
 optimizer_factory = {"adadelta":tf.train.AdadeltaOptimizer,
-					"adam":tf.train.AdamOptimizer,
-					"gradientdescent":tf.train.GradientDescentOptimizer,
-					"adagrad":tf.train.AdagradOptimizer}
+			"adam":tf.train.AdamOptimizer,
+			"gradientdescent":tf.train.GradientDescentOptimizer,
+			"adagrad":tf.train.AdagradOptimizer}
 
 class Model(object):
 	def __init__(self,is_training = True):
@@ -62,41 +62,41 @@ class Model(object):
 
 		# Embed the question and passage information for word and character tokens
 		self.passage_word_encoded, self.passage_char_encoded = encoding(self.passage_w,
-														self.passage_c,
-														word_embeddings = self.word_embeddings,
-														char_embeddings = self.char_embeddings,
-														scope = "passage_embeddings")
+										self.passage_c,
+										word_embeddings = self.word_embeddings,
+										char_embeddings = self.char_embeddings,
+										scope = "passage_embeddings")
 		self.question_word_encoded, self.question_char_encoded = encoding(self.question_w,
-														self.question_c,
-														word_embeddings = self.word_embeddings,
-														char_embeddings = self.char_embeddings,
-														scope = "question_embeddings")
+										self.question_c,
+										word_embeddings = self.word_embeddings,
+										char_embeddings = self.char_embeddings,
+										scope = "question_embeddings")
 		self.passage_char_encoded = bidirectional_GRU(self.passage_char_encoded,
-														self.passage_c_len,
-														scope = "passage_char_encoding",
-														output = 1,
-														is_training = self.is_training)
+								self.passage_c_len,
+								scope = "passage_char_encoding",
+								output = 1,
+								is_training = self.is_training)
 		self.question_char_encoded = bidirectional_GRU(self.question_char_encoded,
-														self.question_c_len,
-														scope = "question_char_encoding",
-														output = 1,
-														is_training = self.is_training)
+								self.question_c_len,
+								scope = "question_char_encoding",
+								output = 1,
+								is_training = self.is_training)
 		self.passage_encoding = tf.concat((self.passage_word_encoded, self.passage_char_encoded),axis = 2)
 		self.question_encoding = tf.concat((self.question_word_encoded, self.question_char_encoded),axis = 2)
 
 		# Passage and question encoding
 		self.passage_encoding = bidirectional_GRU(self.passage_encoding,
-													self.passage_w_len,
-													layers = Params.num_layers,
-													scope = "passage_encoding",
-													output = 0,
-													is_training = self.is_training)
+								self.passage_w_len,
+								layers = Params.num_layers,
+								scope = "passage_encoding",
+								output = 0,
+								is_training = self.is_training)
 		self.question_encoding = bidirectional_GRU(self.question_encoding,
-													self.question_w_len,
-													layers = Params.num_layers,
-													scope = "question_encoding",
-													output = 0,
-													is_training = self.is_training)
+								self.question_w_len,
+								layers = Params.num_layers,
+								scope = "question_encoding",
+								output = 0,
+								is_training = self.is_training)
 
 	def attention_match_rnn(self):
 		with tf.variable_scope("attention_match_rnn"):
@@ -104,13 +104,13 @@ class Model(object):
 			inputs = self.passage_encoding
 			scopes = ["question_passage_matching", "self_matching"]
 			params = [([[self.params["W_u_Q"],
-						self.params["W_u_P"],
-						self.params["W_v_P"]],
-						self.params["v"]],self.params["W_g"]),
-					([[tf.concat((self.params["W_v_P"],
-						self.params["W_v_P"]),axis = 0),
-						self.params["W_v_Phat"]],
-						self.params["v"]],self.params["W_g"])]
+					self.params["W_u_P"],
+					self.params["W_v_P"]],
+					self.params["v"]],self.params["W_g"]),
+				([[tf.concat((self.params["W_v_P"],
+					self.params["W_v_P"]),axis = 0),
+					self.params["W_v_Phat"]],
+					self.params["v"]],self.params["W_g"])]
 			for i in range(2):
 				if scopes[i] == "question_passage_matching":
 					cell_fw = gated_attention_GRUCell(Params.attn_size, memory = memory, params = params[i], self_matching = False)
@@ -120,26 +120,26 @@ class Model(object):
 					cell_bw = gated_attention_GRUCell(Params.attn_size, memory = memory, params = params[i], self_matching = True)
 				cell = (cell_fw, cell_bw)
 				inputs = attention_rnn(inputs,
-										self.passage_w_len,
-										Params.attn_size,
-										cell,
-										bidirection = True,
-										scope = scopes[i])
+							self.passage_w_len,
+							Params.attn_size,
+							cell,
+							bidirection = True,
+							scope = scopes[i])
 				memory = inputs # self matching (attention over itself)
 				inputs = apply_dropout(inputs, is_training = self.is_training)
 			self.self_matching_output = inputs
 
 	def bidirectional_readout(self):
 		self.final_bidirectional_outputs = bidirectional_GRU(self.self_matching_output,
-															self.passage_w_len,
-															layers = Params.num_layers,
-															scope = "bidirectional_readout",
-															output = 0,
-															is_training = self.is_training)
+									self.passage_w_len,
+									layers = Params.num_layers,
+									scope = "bidirectional_readout",
+									output = 0,
+									is_training = self.is_training)
 
 	def pointer_network(self):
 		params = (([self.params["W_u_Q"],self.params["W_v_Q"]],self.params["v"]),
-					([self.params["W_h_P"],self.params["W_h_a"]],self.params["v"]))
+				([self.params["W_h_P"],self.params["W_h_a"]],self.params["v"]))
 		cell = apply_dropout(tf.contrib.rnn.GRUCell(Params.attn_size*2), is_training = self.is_training)
 		self.points_logits = pointer_net(self.final_bidirectional_outputs, self.passage_w_len, self.question_encoding, cell, params, scope = "pointer_network")
 
@@ -218,9 +218,9 @@ def main():
 		config = tf.ConfigProto()
 		config.gpu_options.allow_growth = True
 		sv = tf.train.Supervisor(logdir=Params.logdir,
-								save_model_secs=0,
-								global_step = model.global_step,
-								init_op = model.init_op)
+						save_model_secs=0,
+						global_step = model.global_step,
+						init_op = model.init_op)
 		with sv.managed_session(config = config) as sess:
 			sess.run(model.emb_assign, {model.word_embeddings_placeholder:glove, model.char_embeddings_placeholder:char_glove})
 			for epoch in range(1, Params.num_epochs+1):
