@@ -113,11 +113,11 @@ class Model(object):
 					self.params["v"]],self.params["W_g"])]
 			for i in range(2):
 				if scopes[i] == "question_passage_matching":
-					cell_fw = gated_attention_GRUCell(Params.attn_size, memory = memory, params = params[i], self_matching = False)
-					cell_bw = gated_attention_GRUCell(Params.attn_size, memory = memory, params = params[i], self_matching = False)
+					cell_fw = apply_dropout(gated_attention_GRUCell(Params.attn_size, memory = memory, params = params[i], self_matching = False), is_training = self.is_training)
+					cell_bw = apply_dropout(gated_attention_GRUCell(Params.attn_size, memory = memory, params = params[i], self_matching = False), is_training = self.is_training)
 				elif scopes[i] == "self_matching":
-					cell_fw = gated_attention_GRUCell(Params.attn_size, memory = memory, params = params[i], self_matching = True)
-					cell_bw = gated_attention_GRUCell(Params.attn_size, memory = memory, params = params[i], self_matching = True)
+					cell_fw = apply_dropout(gated_attention_GRUCell(Params.attn_size, memory = memory, params = params[i], self_matching = True), is_training = self.is_training)
+					cell_bw = apply_dropout(gated_attention_GRUCell(Params.attn_size, memory = memory, params = params[i], self_matching = True), is_training = self.is_training)
 				cell = (cell_fw, cell_bw)
 				inputs = attention_rnn(inputs,
 							self.passage_w_len,
@@ -126,13 +126,13 @@ class Model(object):
 							bidirection = True,
 							scope = scopes[i])
 				memory = inputs # self matching (attention over itself)
-				inputs = apply_dropout(inputs, is_training = self.is_training)
+				#inputs = apply_dropout(inputs, is_training = self.is_training)
 			self.self_matching_output = inputs
 
 	def bidirectional_readout(self):
 		self.final_bidirectional_outputs = bidirectional_GRU(self.self_matching_output,
 									self.passage_w_len,
-									layers = Params.num_layers,
+									# layers = Params.num_layers, # or 1? not specified in the original paper
 									scope = "bidirectional_readout",
 									output = 0,
 									is_training = self.is_training)
@@ -192,9 +192,8 @@ def test():
 	char_glove = np.memmap(Params.data_dir + "glove_char.np",dtype = np.float32, mode = "r")
 	char_glove = np.reshape(char_glove,(Params.char_vocab_size,Params.emb_size))
 	with model.graph.as_default():
-		sv = tf.train.Supervisor()
+		sv = tf.train.Supervisor(logdir=Params.logdir)
 		with sv.managed_session() as sess:
-			sv.saver.restore(sess, tf.train.latest_checkpoint(Params.logdir))
 			sess.run(model.emb_assign, {model.word_embeddings_placeholder:glove, model.char_embeddings_placeholder:char_glove})
 			EM, F1 = 0.0, 0.0
 			for step in tqdm(range(model.num_batch), total = model.num_batch, ncols=70, leave=False, unit='b'):
@@ -220,13 +219,14 @@ def main():
 		sv = tf.train.Supervisor(logdir=Params.logdir,
 						save_model_secs=0,
 						global_step = model.global_step,
-						init_op = model.init_op)
+						init_op = model.init_op,
+						summary_op = None)
 		with sv.managed_session(config = config) as sess:
 			sess.run(model.emb_assign, {model.word_embeddings_placeholder:glove, model.char_embeddings_placeholder:char_glove})
 			for epoch in range(1, Params.num_epochs+1):
 				if sv.should_stop(): break
 				for step in tqdm(range(model.num_batch), total = model.num_batch, ncols=70, leave=False, unit='b'):
-					sess.run(model.train_op)
+					sess.run([model.train_op, model.merged] if step % Params.summary_steps == 0 else model.train_op)
 					if step % Params.save_steps == 0:
 						sv.saver.save(sess, Params.logdir + '/model_epoch_%d_step_%d'%(epoch,step))
 						index, ground_truth, passage = sess.run([model.points_logits, model.indices, model.passage_w])
@@ -242,12 +242,14 @@ def main():
 						print("\nExact_match: {}\nF1_score: {}".format(EM,F1))
 
 if __name__ == '__main__':
-	if Params.debug == True:
+	if Params.mode.lower() == "debug":
 		print("Debugging...")
 		debug()
-	elif Params.test == True:
+	elif Params.mode.lower() == "test":
 		print("Testing on dev set...")
 		test()
-	else:
+	elif Params.mode.lower() == "train":
 		print("Training...")
 		main()
+	else:
+		print("Invalid mode.")

@@ -55,8 +55,8 @@ def bidirectional_GRU(inputs, inputs_len, cell = None, units = Params.attn_size,
                 cell_fw = MultiRNNCell([apply_dropout(tf.contrib.rnn.GRUCell(units),is_training = is_training) for _ in range(layers)])
                 cell_bw = MultiRNNCell([apply_dropout(tf.contrib.rnn.GRUCell(units),is_training = is_training) for _ in range(layers)])
             else:
-                cell_fw = tf.contrib.rnn.GRUCell(units)
-                cell_bw = tf.contrib.rnn.GRUCell(units)
+                cell_fw = apply_dropout(tf.contrib.rnn.GRUCell(units), is_training = is_training)
+                cell_bw = apply_dropout(tf.contrib.rnn.GRUCell(units), is_training = is_training)
 
         shapes = inputs.get_shape().as_list()
         if len(shapes) > 3:

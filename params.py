@@ -7,7 +7,7 @@ class Params():
     data_dir = "./data/"
     train_dir = data_dir + "trainset/"
     dev_dir = data_dir + "devset/"
-    logdir = "./train/train_fulldata"
+    logdir = "./train/train_"
     glove_dir = "glove.840B.300d.txt" # Glove file name (If you want to use your own glove, replace the file name here)
     glove_char = "glove.840B.300d.char.txt" # Character Glove file name
     coreNLP_dir = "./stanford-corenlp-full-2017-06-09" # Directory to pycorenlp wrapper
@@ -20,12 +20,12 @@ class Params():
     p_chars_dir = "chars_context.txt"
 
     # Training
-    debug = True # Set it to True to debug the computation graph
-    test = False # Test the model on dev-set
+    mode = "train" # case-insensitive options: ["train", "test", "debug"]
     dropout = 0.2 # dropout probability
     optimizer = "adadelta" # Options: ["adadelta", "adam", "gradientdescent", "adagrad"]
-    batch_size = 50 # Size of the mini-batch for training
+    batch_size = 50 if mode is not "test" else 100# Size of the mini-batch for training
     save_steps = 50 # Save the model at every 50 steps
+    summary_steps = 10 # Flush summary every N steps
     clip = False # clip gradient norm
     norm = 5.0 # global norm
     # Change the hyperparameters of your learning algorithms here
