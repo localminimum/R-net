@@ -35,12 +35,12 @@ if args.process:
     from stanford_corenlp_pywrapper import CoreNLP
     proc = CoreNLP("ssplit",corenlp_jars=[Params.coreNLP_dir + "/*"])
 
-def tokenize_corenlp(text):
-    parsed = proc.parse_doc(text)
-    tokens = []
-    for sent in parsed['sentences']:
-        tokens.extend(sent['tokens'])
-    return tokens
+    def tokenize_corenlp(text):
+        parsed = proc.parse_doc(text)
+        tokens = []
+        for sent in parsed['sentences']:
+            tokens.extend(sent['tokens'])
+        return tokens
 
 class data_loader(object):
     def __init__(self,use_pretrained = None):
@@ -160,8 +160,10 @@ class data_loader(object):
     def add_to_dict(self, line):
         splitted_line = re.split(r'[`\--=~!@#$%^&*\"“”()_+ \[\]{};\\:"|<,./<>?]', line.strip())
         splitted_line = [sl for sl in splitted_line if sl]
-        splitted_line = " ".join(splitted_line)
-        splitted_line = tokenize_corenlp(splitted_line)
+        if args.process:
+            splitted_line = " ".join(splitted_line)
+            splitted_line = tokenize_corenlp(splitted_line)
+
         if self.append_dict:
             self.process_word(splitted_line)
             self.process_char("".join(splitted_line))
@@ -268,7 +270,7 @@ def load_target(dir):
     count = 0
     with codecs.open(dir,"rb","utf-8") as f:
         line = f.readline()
-        while count < 1000 if Params.debug else line:
+        while count < 1000 if Params.mode == "debug" else line:
         # while count < 1000:
             line = [int(w) for w in line.split()]
             data.append(line)
@@ -282,7 +284,7 @@ def load_word(dir):
     count = 0
     with codecs.open(dir,"rb","utf-8") as f:
         line = f.readline()
-        while count < 1000 if Params.debug else line:
+        while count < 1000 if Params.mode == "debug" else line:
         # while count < 1000:
             line = [int(w) for w in line.split()]
             data.append(line)
@@ -298,7 +300,7 @@ def load_char(dir):
     count = 0
     with codecs.open(dir,"rb","utf-8") as f:
         line = f.readline()
-        while count < 1000 if Params.debug else line:
+        while count < 1000 if Params.mode == "debug" else line:
         # while count < 1000:
             c_len = []
             chars = []
