@@ -220,13 +220,18 @@ def main():
 						save_model_secs=0,
 						global_step = model.global_step,
 						init_op = model.init_op,
-						summary_op = None)
+						summary_op = None,
+						save_summaries_secs = 15)
 		with sv.managed_session(config = config) as sess:
 			sess.run(model.emb_assign, {model.word_embeddings_placeholder:glove, model.char_embeddings_placeholder:char_glove})
 			for epoch in range(1, Params.num_epochs+1):
 				if sv.should_stop(): break
 				for step in tqdm(range(model.num_batch), total = model.num_batch, ncols=70, leave=False, unit='b'):
-					sess.run([model.train_op, model.merged] if step % Params.summary_steps == 0 else model.train_op)
+					if step % Params.summary_steps == 0:
+						_, summary = sess.run([model.train_op, model.merged])
+						sv.summary_computed(sess,summary)
+					else:
+						sess.run(model.train_op)
 					if step % Params.save_steps == 0:
 						sv.saver.save(sess, Params.logdir + '/model_epoch_%d_step_%d'%(epoch,step))
 						index, ground_truth, passage = sess.run([model.points_logits, model.indices, model.passage_w])
