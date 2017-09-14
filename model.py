@@ -192,8 +192,9 @@ def test():
 	char_glove = np.memmap(Params.data_dir + "glove_char.np",dtype = np.float32, mode = "r")
 	char_glove = np.reshape(char_glove,(Params.char_vocab_size,Params.emb_size))
 	with model.graph.as_default():
-		sv = tf.train.Supervisor(logdir=Params.logdir)
+		sv = tf.train.Supervisor()
 		with sv.managed_session() as sess:
+			sv.saver.restore(sess, tf.train.latest_checkpoint(Params.logdir))
 			sess.run(model.emb_assign, {model.word_embeddings_placeholder:glove, model.char_embeddings_placeholder:char_glove})
 			EM, F1 = 0.0, 0.0
 			for step in tqdm(range(model.num_batch), total = model.num_batch, ncols=70, leave=False, unit='b'):
@@ -219,21 +220,16 @@ def main():
 		sv = tf.train.Supervisor(logdir=Params.logdir,
 						save_model_secs=0,
 						global_step = model.global_step,
-						init_op = model.init_op,
-						summary_op = None,
-						save_summaries_secs = 15)
+						init_op = model.init_op)
 		with sv.managed_session(config = config) as sess:
 			sess.run(model.emb_assign, {model.word_embeddings_placeholder:glove, model.char_embeddings_placeholder:char_glove})
 			for epoch in range(1, Params.num_epochs+1):
 				if sv.should_stop(): break
 				for step in tqdm(range(model.num_batch), total = model.num_batch, ncols=70, leave=False, unit='b'):
-					if step % Params.summary_steps == 0:
-						_, summary = sess.run([model.train_op, model.merged])
-						sv.summary_computed(sess,summary)
-					else:
-						sess.run(model.train_op)
+					sess.run(model.train_op)
 					if step % Params.save_steps == 0:
-						sv.saver.save(sess, Params.logdir + '/model_epoch_%d_step_%d'%(epoch,step))
+						gs = sess.run(model.global_step)
+						sv.saver.save(sess, Params.logdir + '/model_epoch_%d_step_%d'%(gs//model.num_batch, gs%model.num_batch))
 						index, ground_truth, passage = sess.run([model.points_logits, model.indices, model.passage_w])
 						index = np.argmax(index, axis = 2)
 						F1, EM = 0.0, 0.0

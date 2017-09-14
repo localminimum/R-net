@@ -25,7 +25,6 @@ class Params():
     optimizer = "adadelta" # Options: ["adadelta", "adam", "gradientdescent", "adagrad"]
     batch_size = 50 if mode is not "test" else 100# Size of the mini-batch for training
     save_steps = 50 # Save the model at every 50 steps
-    summary_steps = 10 # Flush summary every N steps
     clip = False # clip gradient norm
     norm = 5.0 # global norm
     # Change the hyperparameters of your learning algorithms here
