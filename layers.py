@@ -111,13 +111,14 @@ def question_pooling(memory, units, weights, scope = "question_pooling"):
 def gated_attention(memory, inputs, states, units, params, self_matching = False, output_argmax = None, scope="gated_attention"):
     with tf.variable_scope(scope):
         weights, W_g = params
+        if W_g is None:
+            W_g = tf.get_variable("W_g", dtype = tf.float32, shape = (4 * Params.attn_size, 4 * Params.attn_size), initializer = tf.contrib.layers.xavier_initializer())
         inputs_ = [memory, inputs]
         states = tf.reshape(states,(Params.batch_size,Params.attn_size))
         if not self_matching:
             inputs_.append(states)
 
         scores = attention(inputs_, units, weights)
-        # scores = tf.reshape(scores,(shapes[0],shapes[1],1))
         scores = tf.expand_dims(scores,-1)
         attention_pool = tf.reduce_sum(scores * memory, 1)
         inputs = tf.concat((inputs,attention_pool),axis = 1)
@@ -131,6 +132,8 @@ def attention(inputs, units, weights, scope = "attention", output_fn = "softmax"
         for i, (inp,w) in enumerate(zip(inputs,weights)):
             shapes = inp.shape.as_list()
             inp = tf.reshape(inp, (-1, shapes[-1]))
+            if w is None:
+                w = tf.get_variable("w_%d"%i, dtype = tf.float32, shape = [shapes[-1],Params.attn_size], initializer = tf.contrib.layers.xavier_initializer())
             outputs = tf.matmul(inp, w)
             if len(shapes) > 2:
                 outputs = tf.reshape(outputs, (shapes[0], shapes[1], -1))

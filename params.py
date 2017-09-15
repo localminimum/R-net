@@ -23,6 +23,7 @@ class Params():
     mode = "train" # case-insensitive options: ["train", "test", "debug"]
     dropout = 0.2 # dropout probability
     optimizer = "adadelta" # Options: ["adadelta", "adam", "gradientdescent", "adagrad"]
+    weight_sharing = True # Use weight sharing
     batch_size = 50 if mode is not "test" else 100# Size of the mini-batch for training
     save_steps = 50 # Save the model at every 50 steps
     clip = False # clip gradient norm

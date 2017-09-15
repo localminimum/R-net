@@ -108,7 +108,7 @@ class Model(object):
 					self.params["W_v_P"]],self.params["W_g"]),
 				([tf.concat((self.params["W_v_P"],
 					self.params["W_v_P"]),axis = 0),
-					self.params["W_v_Phat"]],self.params["W_g"])]
+					self.params["W_v_Phat"]],self.params["W_g"]) if Params.weight_sharing else ([None, self.params["W_v_Phat"]], None)]
 			for i in range(2):
 				if scopes[i] == "question_passage_matching":
 					cell_fw = apply_dropout(gated_attention_GRUCell(Params.attn_size, memory = memory, params = params[i], self_matching = False), is_training = self.is_training)
@@ -135,7 +135,7 @@ class Model(object):
 									is_training = self.is_training)
 
 	def pointer_network(self):
-		params = ((self.params["W_u_Q"],self.params["W_v_Q"]),
+		params = ((self.params["W_u_Q"],self.params["W_v_Q"]) if Params.weight_sharing else (None, self.params["W_v_Q"]),
 				(self.params["W_h_P"],self.params["W_h_a"]))
 		cell = apply_dropout(tf.contrib.rnn.GRUCell(Params.attn_size*2), is_training = self.is_training)
 		self.points_logits = pointer_net(self.final_bidirectional_outputs, self.passage_w_len, self.question_encoding, cell, params, scope = "pointer_network")
