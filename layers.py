@@ -28,8 +28,7 @@ def get_attn_params(attn_size,initializer = tf.truncated_normal_initializer):
                 "W_h_P":tf.get_variable("W_h_P",dtype = tf.float32, shape = (2 * attn_size, attn_size), initializer = initializer()),
                 "W_v_Phat":tf.get_variable("W_v_Phat",dtype = tf.float32, shape = (2 * attn_size, attn_size), initializer = initializer()),
                 "W_h_a":tf.get_variable("W_h_a",dtype = tf.float32, shape = (2 * attn_size, attn_size), initializer = initializer()),
-                "W_v_Q":tf.get_variable("W_v_Q",dtype = tf.float32, shape = (attn_size, attn_size), initializer = initializer()),
-                "v":tf.get_variable("v", dtype = tf.float32, shape = attn_size, initializer = initializer())}
+                "W_v_Q":tf.get_variable("W_v_Q",dtype = tf.float32, shape = (attn_size, attn_size), initializer = initializer())}
         return params
 
 def encoding(word, char, word_embeddings, char_embeddings, scope = "embedding"):
@@ -42,7 +41,7 @@ def apply_dropout(inputs, dropout = Params.dropout, is_training = True):
     if not is_training:
         return inputs
     if isinstance(inputs, RNNCell):
-        return tf.contrib.rnn.DropoutWrapper(inputs, output_keep_prob=1.0 - dropout)
+        return tf.contrib.rnn.DropoutWrapper(inputs, output_keep_prob=1.0 - dropout, variational_recurrent=True, dtype = tf.float32)
     else:
         return tf.nn.dropout(inputs, keep_prob = 1.0 - dropout)
 
@@ -127,7 +126,7 @@ def gated_attention(memory, inputs, states, units, params, self_matching = False
 
 def attention(inputs, units, weights, scope = "attention", output_fn = "softmax", reuse = None):
     with tf.variable_scope(scope, reuse = reuse):
-        weights, v = weights
+        v = tf.get_variable("v", shape = Params.attn_size, dtype = tf.float32, initializer = tf.contrib.layers.xavier_initializer())
         outputs_ = []
         for i, (inp,w) in enumerate(zip(inputs,weights)):
             shapes = inp.shape.as_list()
