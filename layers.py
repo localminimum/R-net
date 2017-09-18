@@ -28,7 +28,7 @@ def get_attn_params(attn_size,initializer = tf.truncated_normal_initializer):
                 "W_h_P":tf.get_variable("W_h_P",dtype = tf.float32, shape = (2 * attn_size, attn_size), initializer = initializer()),
                 "W_v_Phat":tf.get_variable("W_v_Phat",dtype = tf.float32, shape = (2 * attn_size, attn_size), initializer = initializer()),
                 "W_h_a":tf.get_variable("W_h_a",dtype = tf.float32, shape = (2 * attn_size, attn_size), initializer = initializer()),
-                "W_v_Q":tf.get_variable("W_v_Q",dtype = tf.float32, shape = (attn_size, attn_size), initializer = initializer())}
+                "W_v_Q":tf.get_variable("W_v_Q",dtype = tf.float32, shape = (2 * attn_size,  attn_size), initializer = initializer())}
         return params
 
 def encoding(word, char, word_embeddings, char_embeddings, scope = "embedding"):
@@ -102,7 +102,7 @@ def attention_rnn(inputs, inputs_len, units, attn_cell, bidirection = True, scop
 def question_pooling(memory, units, weights, scope = "question_pooling"):
     with tf.variable_scope(scope):
         shapes = memory.get_shape().as_list()
-        V_r = tf.get_variable("question_param", shape = units, dtype = tf.float32)
+        V_r = tf.get_variable("question_param", shape = (shapes[1], 2 * units), dtype = tf.float32)
         inputs_ = [memory, V_r]
         attn = attention(inputs_, units, weights, scope = "question_attention_pooling")
         attn = tf.expand_dims(attn, -1)
@@ -127,7 +127,6 @@ def gated_attention(memory, inputs, states, units, params, self_matching = False
 
 def attention(inputs, units, weights, scope = "attention", output_fn = "softmax", reuse = None):
     with tf.variable_scope(scope, reuse = reuse):
-        v = tf.get_variable("v", shape = Params.attn_size, dtype = tf.float32, initializer = tf.contrib.layers.xavier_initializer())
         outputs_ = []
         for i, (inp,w) in enumerate(zip(inputs,weights)):
             shapes = inp.shape.as_list()
@@ -135,12 +134,16 @@ def attention(inputs, units, weights, scope = "attention", output_fn = "softmax"
             if w is None:
                 w = tf.get_variable("w_%d"%i, dtype = tf.float32, shape = [shapes[-1],Params.attn_size], initializer = tf.contrib.layers.xavier_initializer())
             outputs = tf.matmul(inp, w)
+            # Hardcoded attention output reshaping. Equation (4), (8), (9) and (11) in the original paper.
             if len(shapes) > 2:
                 outputs = tf.reshape(outputs, (shapes[0], shapes[1], -1))
-            elif len(shapes) == 2:
+            elif len(shapes) == 2 and shapes[0] is Params.batch_size:
                 outputs = tf.reshape(outputs, (shapes[0],1,-1))
+            else:
+                outputs = tf.reshape(outputs, (1, shapes[0],-1))
             outputs_.append(outputs)
         outputs = sum(outputs_)
+        v = tf.get_variable("v", shape = Params.attn_size, dtype = tf.float32, initializer = tf.contrib.layers.xavier_initializer())
         scores = tf.reduce_sum(tf.tanh(outputs) * v, [-1])
         if output_fn == "softmax":
             return tf.nn.softmax(scores)
