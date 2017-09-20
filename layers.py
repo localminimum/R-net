@@ -22,13 +22,15 @@ W_v^Q.shape:    (attn_size, attn_size)
 def get_attn_params(attn_size,initializer = tf.truncated_normal_initializer):
     with tf.variable_scope("attention_weights"):
         params = {"W_u_Q":tf.get_variable("W_u_Q",dtype = tf.float32, shape = (2 * attn_size, attn_size), initializer = initializer()),
+                "W_ru_Q":tf.get_variable("W_ru_Q",dtype = tf.float32, shape = (2 * attn_size, 2 * attn_size), initializer = initializer()),
                 "W_u_P":tf.get_variable("W_u_P",dtype = tf.float32, shape = (2 * attn_size, attn_size), initializer = initializer()),
                 "W_v_P":tf.get_variable("W_v_P",dtype = tf.float32, shape = (attn_size, attn_size), initializer = initializer()),
+                "W_v_P_2":tf.get_variable("W_v_P_2",dtype = tf.float32, shape = (2 * attn_size, attn_size), initializer = initializer()),
                 "W_g":tf.get_variable("W_g",dtype = tf.float32, shape = (4 * attn_size, 4 * attn_size), initializer = initializer()),
                 "W_h_P":tf.get_variable("W_h_P",dtype = tf.float32, shape = (2 * attn_size, attn_size), initializer = initializer()),
                 "W_v_Phat":tf.get_variable("W_v_Phat",dtype = tf.float32, shape = (2 * attn_size, attn_size), initializer = initializer()),
                 "W_h_a":tf.get_variable("W_h_a",dtype = tf.float32, shape = (2 * attn_size, attn_size), initializer = initializer()),
-                "W_v_Q":tf.get_variable("W_v_Q",dtype = tf.float32, shape = (2 * attn_size,  attn_size), initializer = initializer())}
+                "W_v_Q":tf.get_variable("W_v_Q",dtype = tf.float32, shape = (attn_size,  2 * attn_size), initializer = initializer())}
         return params
 
 def encoding(word, char, word_embeddings, char_embeddings, scope = "embedding"):
@@ -38,7 +40,7 @@ def encoding(word, char, word_embeddings, char_embeddings, scope = "embedding"):
         return word_encoding, char_encoding
 
 def apply_dropout(inputs, dropout = Params.dropout, is_training = True):
-    if not is_training:
+    if not is_training or Params.dropout is None:
         return inputs
     if isinstance(inputs, RNNCell):
         return tf.contrib.rnn.DropoutWrapper(inputs, output_keep_prob=1.0 - dropout, variational_recurrent=True, dtype = tf.float32)
@@ -102,7 +104,7 @@ def attention_rnn(inputs, inputs_len, units, attn_cell, bidirection = True, scop
 def question_pooling(memory, units, weights, scope = "question_pooling"):
     with tf.variable_scope(scope):
         shapes = memory.get_shape().as_list()
-        V_r = tf.get_variable("question_param", shape = (shapes[1], 2 * units), dtype = tf.float32)
+        V_r = tf.get_variable("question_param", shape = (Params.max_q_len, units), dtype = tf.float32)
         inputs_ = [memory, V_r]
         attn = attention(inputs_, units, weights, scope = "question_attention_pooling")
         attn = tf.expand_dims(attn, -1)
@@ -111,13 +113,10 @@ def question_pooling(memory, units, weights, scope = "question_pooling"):
 def gated_attention(memory, inputs, states, units, params, self_matching = False, output_argmax = None, scope="gated_attention"):
     with tf.variable_scope(scope):
         weights, W_g = params
-        if W_g is None:
-            W_g = tf.get_variable("W_g", dtype = tf.float32, shape = (4 * Params.attn_size, 4 * Params.attn_size), initializer = tf.contrib.layers.xavier_initializer())
         inputs_ = [memory, inputs]
         states = tf.reshape(states,(Params.batch_size,Params.attn_size))
         if not self_matching:
             inputs_.append(states)
-
         scores = attention(inputs_, units, weights)
         scores = tf.expand_dims(scores,-1)
         attention_pool = tf.reduce_sum(scores * memory, 1)
@@ -130,6 +129,7 @@ def attention(inputs, units, weights, scope = "attention", output_fn = "softmax"
         outputs_ = []
         for i, (inp,w) in enumerate(zip(inputs,weights)):
             shapes = inp.shape.as_list()
+            # print(inp,w)
             inp = tf.reshape(inp, (-1, shapes[-1]))
             if w is None:
                 w = tf.get_variable("w_%d"%i, dtype = tf.float32, shape = [shapes[-1],Params.attn_size], initializer = tf.contrib.layers.xavier_initializer())
@@ -143,12 +143,21 @@ def attention(inputs, units, weights, scope = "attention", output_fn = "softmax"
                 outputs = tf.reshape(outputs, (1, shapes[0],-1))
             outputs_.append(outputs)
         outputs = sum(outputs_)
-        v = tf.get_variable("v", shape = Params.attn_size, dtype = tf.float32, initializer = tf.contrib.layers.xavier_initializer())
+        v = tf.get_variable("v", shape = outputs.shape[-1], dtype = tf.float32, initializer = tf.contrib.layers.xavier_initializer())
         scores = tf.reduce_sum(tf.tanh(outputs) * v, [-1])
         if output_fn == "softmax":
             return tf.nn.softmax(scores)
         else:
             return scores
+
+def cross_entropy_with_sequence_mask(output, target):
+	cross_entropy = target * tf.log(output + 1e-8)
+	cross_entropy = -tf.reduce_sum(cross_entropy, 2)
+	mask = tf.sign(tf.reduce_max(tf.abs(target), 2))
+	cross_entropy *= mask
+	cross_entropy = tf.reduce_sum(cross_entropy, 1)
+	cross_entropy /= tf.reduce_sum(mask, 1)
+	return tf.reduce_mean(cross_entropy)
 
 def total_params():
     total_parameters = 0

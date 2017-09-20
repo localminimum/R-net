@@ -129,7 +129,7 @@ def load_data(dir_):
     # Get max length to pad
     p_max_word = np.max(p_word_len)
     p_max_char = max_value(p_char_len)
-    q_max_word = np.max(q_word_len)
+    q_max_word = Params.max_q_len#np.max(q_word_len)
     q_max_char = max_value(q_char_len)
 
     # pad_data
