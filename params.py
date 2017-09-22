@@ -10,7 +10,7 @@ class Params():
     logdir = "./train/train"
     glove_dir = "./glove.840B.300d.txt" # Glove file name (If you want to use your own glove, replace the file name here)
     glove_char = "./glove.840B.300d.char.txt" # Character Glove file name
-    coreNLP_dir = "./stanford-corenlp-full-2017-06-09" # Directory to pycorenlp wrapper
+    coreNLP_dir = "./stanford-corenlp-full-2017-06-09" # Directory to Stanford coreNLP tool
 
     # Data dir
     target_dir = "indices.txt"
@@ -22,9 +22,8 @@ class Params():
     # Training
     max_q_len = 37
     mode = "train" # case-insensitive options: ["train", "test", "debug"]
-    dropout = 0.2 # dropout probability if None, don't use dropout
+    dropout = None # dropout probability if None, don't use dropout
     optimizer = "adadelta" # Options: ["adadelta", "adam", "gradientdescent", "adagrad"]
-    weight_sharing = True # Use weight sharing
     batch_size = 50 if mode is not "test" else 100# Size of the mini-batch for training
     save_steps = 50 # Save the model at every 50 steps
     clip = False # clip gradient norm

@@ -21,6 +21,7 @@ optimizer_factory = {"adadelta":tf.train.AdadeltaOptimizer,
 
 class Model(object):
 	def __init__(self,is_training = True):
+		# Build the computational graph when initializing
 		self.is_training = is_training
 		self.graph = tf.Graph()
 		with self.graph.as_default():
@@ -35,6 +36,7 @@ class Model(object):
 			self.passage_c_len,
 			self.question_c_len,
 			self.indices) = data
+
 			self.passage_w_len = tf.squeeze(self.passage_w_len)
 			self.question_w_len = tf.squeeze(self.question_w_len)
 
@@ -72,33 +74,34 @@ class Model(object):
 										char_embeddings = self.char_embeddings,
 										scope = "question_embeddings")
 		self.passage_char_encoded = bidirectional_GRU(self.passage_char_encoded,
-								self.passage_c_len,
-								scope = "passage_char_encoding",
-								output = 1,
-								is_training = self.is_training)
+										self.passage_c_len,
+										scope = "passage_char_encoding",
+										output = 1,
+										is_training = self.is_training)
 		self.question_char_encoded = bidirectional_GRU(self.question_char_encoded,
-								self.question_c_len,
-								scope = "question_char_encoding",
-								output = 1,
-								is_training = self.is_training)
+										self.question_c_len,
+										scope = "question_char_encoding",
+										output = 1,
+										is_training = self.is_training)
 		self.passage_encoding = tf.concat((self.passage_word_encoded, self.passage_char_encoded),axis = 2)
 		self.question_encoding = tf.concat((self.question_word_encoded, self.question_char_encoded),axis = 2)
 
 		# Passage and question encoding
 		self.passage_encoding = bidirectional_GRU(self.passage_encoding,
-								self.passage_w_len,
-								layers = Params.num_layers,
-								scope = "passage_encoding",
-								output = 0,
-								is_training = self.is_training)
+										self.passage_w_len,
+										layers = Params.num_layers,
+										scope = "passage_encoding",
+										output = 0,
+										is_training = self.is_training)
 		self.question_encoding = bidirectional_GRU(self.question_encoding,
-								self.question_w_len,
-								layers = Params.num_layers,
-								scope = "question_encoding",
-								output = 0,
-								is_training = self.is_training)
+										self.question_w_len,
+										layers = Params.num_layers,
+										scope = "question_encoding",
+										output = 0,
+										is_training = self.is_training)
 
 	def attention_match_rnn(self):
+		# Apply gated attention recurrent network for both query-passage matching and self matching networks
 		with tf.variable_scope("attention_match_rnn"):
 			memory = self.question_encoding
 			inputs = self.passage_encoding
@@ -109,34 +112,28 @@ class Model(object):
 						self.params["W_g"]),
 					([self.params["W_v_P_2"],
 						self.params["W_v_Phat"]],
-						self.params["W_g"]) if Params.weight_sharing else ([None, self.params["W_v_Phat"]], None)]
+						self.params["W_g"])]
 			for i in range(2):
-				if scopes[i] == "question_passage_matching":
-					cell_fw = apply_dropout(gated_attention_GRUCell(Params.attn_size, memory = memory, params = params[i], self_matching = False), is_training = self.is_training)
-					cell_bw = apply_dropout(gated_attention_GRUCell(Params.attn_size, memory = memory, params = params[i], self_matching = False), is_training = self.is_training)
-				elif scopes[i] == "self_matching":
-					cell_fw = apply_dropout(gated_attention_GRUCell(Params.attn_size, memory = memory, params = params[i], self_matching = True), is_training = self.is_training)
-					cell_bw = apply_dropout(gated_attention_GRUCell(Params.attn_size, memory = memory, params = params[i], self_matching = True), is_training = self.is_training)
-				cell = (cell_fw, cell_bw)
+				cell_fw = gated_attention_GRUCell(Params.attn_size, memory = memory, params = params[i], self_matching = False if i == 0 else True)
+				cell_bw = gated_attention_GRUCell(Params.attn_size, memory = memory, params = params[i], self_matching = False if i == 0 else True)
 				inputs = attention_rnn(inputs,
 							self.passage_w_len,
 							Params.attn_size,
-							cell,
-							bidirection = True,
+							(cell_fw, cell_bw),
 							scope = scopes[i])
 				memory = inputs # self matching (attention over itself)
 			self.self_matching_output = inputs
 
 	def bidirectional_readout(self):
 		self.final_bidirectional_outputs = bidirectional_GRU(self.self_matching_output,
-									self.passage_w_len,
-									# layers = Params.num_layers, # or 1? not specified in the original paper
-									scope = "bidirectional_readout",
-									output = 0,
-									is_training = self.is_training)
+													self.passage_w_len,
+													# layers = Params.num_layers, # or 1? not specified in the original paper
+													scope = "bidirectional_readout",
+													output = 0,
+													is_training = self.is_training)
 
 	def pointer_network(self):
-		params = ((self.params["W_ru_Q"],self.params["W_v_Q"]) if Params.weight_sharing else (None, self.params["W_v_Q"]),
+		params = ((self.params["W_ru_Q"],self.params["W_v_Q"]),
 				(self.params["W_h_P"],self.params["W_h_a"]))
 		cell = apply_dropout(tf.contrib.rnn.GRUCell(Params.attn_size*2), is_training = self.is_training)
 		self.points_logits = pointer_net(self.final_bidirectional_outputs, self.passage_w_len, self.question_encoding, cell, params, scope = "pointer_network")
@@ -149,7 +146,6 @@ class Model(object):
 			shapes = self.passage_w.shape
 			self.indices_prob = tf.one_hot(self.indices, shapes[1])
 			self.mean_loss = cross_entropy_with_sequence_mask(tf.nn.softmax(self.points_logits), self.indices_prob)
-			#self.mean_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels = self.indices_prob, logits = self.points_logits))
 			self.optimizer = optimizer_factory[Params.optimizer](**Params.opt_arg[Params.optimizer])
 
 			if Params.clip:
@@ -203,16 +199,16 @@ def main():
 	model = Model(is_training = True); print("Built model")
 	dict_ = pickle.load(open(Params.data_dir + "dictionary.pkl","r"))
 	glove = np.memmap(Params.data_dir + "glove.np", dtype = np.float32, mode = "r")
-	glove = np.reshape(glove,(Params.vocab_size,300))
+	glove = np.reshape(glove,(Params.vocab_size,Params.emb_size))
 	char_glove = np.memmap(Params.data_dir + "glove_char.np",dtype = np.float32, mode = "r")
-	char_glove = np.reshape(char_glove,(Params.char_vocab_size,300))
+	char_glove = np.reshape(char_glove,(Params.char_vocab_size,Params.emb_size))
 	with model.graph.as_default():
 		config = tf.ConfigProto()
 		config.gpu_options.allow_growth = True
 		sv = tf.train.Supervisor(logdir=Params.logdir,
-						save_model_secs=0,
-						global_step = model.global_step,
-						init_op = model.init_op)
+									save_model_secs=0,
+									global_step = model.global_step,
+									init_op = model.init_op)
 		with sv.managed_session(config = config) as sess:
 			sess.run(model.emb_assign, {model.word_embeddings_placeholder:glove, model.char_embeddings_placeholder:char_glove})
 			for epoch in range(1, Params.num_epochs+1):

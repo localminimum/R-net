@@ -43,7 +43,7 @@ def apply_dropout(inputs, dropout = Params.dropout, is_training = True):
     if not is_training or Params.dropout is None:
         return inputs
     if isinstance(inputs, RNNCell):
-        return tf.contrib.rnn.DropoutWrapper(inputs, output_keep_prob=1.0 - dropout, variational_recurrent=True, dtype = tf.float32)
+        return tf.contrib.rnn.DropoutWrapper(inputs, output_keep_prob=1.0 - dropout, dtype = tf.float32)
     else:
         return tf.nn.dropout(inputs, keep_prob = 1.0 - dropout)
 
@@ -53,11 +53,11 @@ def bidirectional_GRU(inputs, inputs_len, cell = None, units = Params.attn_size,
             (cell_fw, cell_bw) = cell
         else:
             if layers > 1:
-                cell_fw = MultiRNNCell([apply_dropout(tf.contrib.rnn.GRUCell(units),is_training = is_training) for _ in range(layers)])
-                cell_bw = MultiRNNCell([apply_dropout(tf.contrib.rnn.GRUCell(units),is_training = is_training) for _ in range(layers)])
+                cell_fw = MultiRNNCell([tf.contrib.rnn.GRUCell(units) for _ in range(layers)])
+                cell_bw = MultiRNNCell([tf.contrib.rnn.GRUCell(units) for _ in range(layers)])
             else:
-                cell_fw = apply_dropout(tf.contrib.rnn.GRUCell(units), is_training = is_training)
-                cell_bw = apply_dropout(tf.contrib.rnn.GRUCell(units), is_training = is_training)
+                cell_fw = tf.contrib.rnn.GRUCell(units)
+                cell_bw = tf.contrib.rnn.GRUCell(units)
 
         shapes = inputs.get_shape().as_list()
         if len(shapes) > 3:
@@ -104,7 +104,7 @@ def attention_rnn(inputs, inputs_len, units, attn_cell, bidirection = True, scop
 def question_pooling(memory, units, weights, scope = "question_pooling"):
     with tf.variable_scope(scope):
         shapes = memory.get_shape().as_list()
-        V_r = tf.get_variable("question_param", shape = (Params.max_q_len, units), dtype = tf.float32)
+        V_r = tf.get_variable("question_param", shape = (Params.max_q_len, units), initializer = tf.contrib.layers.xavier_initializer(), dtype = tf.float32)
         inputs_ = [memory, V_r]
         attn = attention(inputs_, units, weights, scope = "question_attention_pooling")
         attn = tf.expand_dims(attn, -1)
@@ -129,7 +129,6 @@ def attention(inputs, units, weights, scope = "attention", output_fn = "softmax"
         outputs_ = []
         for i, (inp,w) in enumerate(zip(inputs,weights)):
             shapes = inp.shape.as_list()
-            # print(inp,w)
             inp = tf.reshape(inp, (-1, shapes[-1]))
             if w is None:
                 w = tf.get_variable("w_%d"%i, dtype = tf.float32, shape = [shapes[-1],Params.attn_size], initializer = tf.contrib.layers.xavier_initializer())
@@ -158,6 +157,7 @@ def cross_entropy_with_sequence_mask(output, target):
 	cross_entropy = tf.reduce_sum(cross_entropy, 1)
 	cross_entropy /= tf.reduce_sum(mask, 1)
 	return tf.reduce_mean(cross_entropy)
+
 
 def total_params():
     total_parameters = 0
