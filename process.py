@@ -107,27 +107,18 @@ class data_loader(object):
                 f.write("%s: %s" % (key, value) + "\n")
 
     def loop(self, data, dir_ = Params.train_dir):
-        watch_list = ["one"]
         for topic in data['data']:
             for para in topic['paragraphs']:
-                for qas in para['qas']:
-                    for ans in qas['answers']:
-                        if ans['text'] in watch_list:
-                            continue
-                        elif len(ans['text']) <= 2:
-                            continue
-                        cond = {ans['text']:" " + ans['text'] + " "}
-                        cond = dict((re.escape(k), v) for k, v in cond.iteritems())
-                        pattern = re.compile("|".join(cond.keys()))
-                        para['context'] = pattern.sub(lambda m: cond[re.escape(m.group(0))], para['context'])
 
                 words_c,chars_c = self.add_to_dict(para['context'])
-                if len(words_c) >= Params.max_len:
+                if len(words_c) >= Params.max_p_len:
                     continue
 
                 for qas in para['qas']:
                     question = qas['question']
                     words,chars = self.add_to_dict(question)
+                    if len(words) >= Params.max_q_len:
+                        continue
                     ans = qas['answers'][0]
                     ans_ids,_ = self.add_to_dict(ans['text'])
                     (start_i, finish_i) = find_answer_index(words_c, ans_ids)
@@ -158,11 +149,8 @@ class data_loader(object):
                         self.c_count += 1
 
     def add_to_dict(self, line):
-        splitted_line = re.split(r'[`\--=~!@#$%^&*\"“”()_+ \[\]{};\\:"|<,./<>?]', line.strip())
-        splitted_line = [sl for sl in splitted_line if sl]
         if args.process:
-            splitted_line = " ".join(splitted_line)
-            splitted_line = tokenize_corenlp(splitted_line)
+            splitted_line = tokenize_corenlp(line)
 
         if self.append_dict:
             self.process_word(splitted_line)
@@ -235,17 +223,6 @@ def find_answer_index(context, answer):
 def normalize_text(text):
     return unicodedata.normalize('NFD', text)
 
-def print_keys(dict):
-    for key, value in sorted(dict.iteritems(), key=lambda (k,v): (v,k)):
-        print("%s: %s" % (key, value) + "\n")
-
-def tok2id(tokens,dict_):
-    return [str(dict_.get(tok,dict_["_UNK"])) for tok in tokens]
-
-def to_text_file(line, dir):
-    with codecs.open(dir,"ab","utf-8") as f:
-        f.write(line + "\n")
-
 def write_file(indices, dir_, separate = "\n"):
     with codecs.open(dir_,"ab","utf-8") as f:
         f.write(" ".join(indices) + separate)
@@ -262,6 +239,9 @@ def pad_char_data(data, max_char, max_words):
     for i,line in enumerate(data):
         for j,word in enumerate(line):
             for k,char in enumerate(word):
+                if k >= max_char:
+                    # ignore the rest of the word if it's longer than the limit
+                    break
                 padded_data[i,j,k] = char
     return padded_data
 
@@ -271,7 +251,6 @@ def load_target(dir):
     with codecs.open(dir,"rb","utf-8") as f:
         line = f.readline()
         while count < 1000 if Params.mode == "debug" else line:
-        # while count < 1000:
             line = [int(w) for w in line.split()]
             data.append(line)
             count += 1
@@ -285,7 +264,6 @@ def load_word(dir):
     with codecs.open(dir,"rb","utf-8") as f:
         line = f.readline()
         while count < 1000 if Params.mode == "debug" else line:
-        # while count < 1000:
             line = [int(w) for w in line.split()]
             data.append(line)
             count += 1
@@ -301,7 +279,6 @@ def load_char(dir):
     with codecs.open(dir,"rb","utf-8") as f:
         line = f.readline()
         while count < 1000 if Params.mode == "debug" else line:
-        # while count < 1000:
             c_len = []
             chars = []
             line = line.split("_SPC")
@@ -331,6 +308,7 @@ def main():
     	loader.process_json(Params.data_dir + "dev-v1.1.json", out_dir = Params.dev_dir)
     	pickle.dump(loader, dictionary, pickle.HIGHEST_PROTOCOL)
     print("Tokenizing completed successfully")
+    if os.path.isfile(Params.data_dir + "glove.np"): exit()
     load_glove(Params.glove_dir,"glove",vocab_size = Params.vocab_size)
     load_glove(Params.glove_char,"glove_char", vocab_size = Params.char_vocab_size)
     print("Processing completed successfully")

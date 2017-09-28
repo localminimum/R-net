@@ -127,13 +127,13 @@ def load_data(dir_):
     p_char_ids, p_char_len, p_word_len = load_char(dir_ + Params.p_chars_dir)
 
     # Get max length to pad
-    p_max_word = np.max(p_word_len)
-    p_max_char = max_value(p_char_len)
-    q_max_word = Params.max_q_len#np.max(q_word_len)
-    q_max_char = max_value(q_char_len)
+    p_max_word = Params.max_p_len#np.max(p_word_len)
+    p_max_char = min(Params.max_char_len,max_value(p_char_len))
+    q_max_word = Params.max_q_len#,np.max(q_word_len)
+    q_max_char = min(Params.max_char_len,max_value(q_char_len))
 
     # pad_data
-    print("Preparing training data...")
+    print("Preparing data...")
     p_word_ids = pad_data(p_word_ids,p_max_word)
     q_word_ids = pad_data(q_word_ids,q_max_word)
     p_char_ids = pad_char_data(p_char_ids,p_max_char,p_max_word)
