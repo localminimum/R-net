@@ -78,8 +78,8 @@ def pointer_net(passage, passage_len, question, cell, params, scope = "pointer_n
         initial_state = question_pooling(question, units = Params.attn_size, weights = weights_q, scope = "question_pooling")
         inputs = [passage, initial_state]
         p1_logits = attention(inputs, Params.attn_size, weights_p, output_fn = None, scope = "attention")
-        scores = tf.expand_dims(p1_logits, -1)
-        scores = tf.nn.softmax(scores)
+        scores = tf.nn.softmax(p1_logits)
+        scores = tf.expand_dims(scores, -1)
         attention_pool = tf.reduce_sum(scores * passage,1)
         _, state = cell(attention_pool, initial_state)
         inputs = [passage, state]
