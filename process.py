@@ -158,11 +158,11 @@ class data_loader(object):
                         self.c_count += 1
 
     def add_to_dict(self, line):
-        splitted_line = re.split(r'[`\--=~!@#$%^&*\"“”()_+ \[\]{};\\:"|<,./<>?]', line.strip())
-        splitted_line = [sl for sl in splitted_line if sl]
+        # splitted_line = re.split(r'[`\--=@#$%^&*\"“”()_+ \[\]{};\\:"|</<>]', line.strip())
+        # splitted_line = [sl for sl in splitted_line if sl]
         if args.process:
-            splitted_line = " ".join(splitted_line)
-            splitted_line = tokenize_corenlp(splitted_line)
+            # splitted_line = " ".join(splitted_line)
+            splitted_line = tokenize_corenlp(line)
 
         if self.append_dict:
             self.process_word(splitted_line)

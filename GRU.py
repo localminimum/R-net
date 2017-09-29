@@ -38,8 +38,8 @@ class gated_attention_GRUCell(RNNCell):
                num_units,
                memory,
                params,
-               output_argmax = None,
                self_matching = False,
+               memory_len = None,
                reuse=None,
                kernel_initializer=None,
                bias_initializer=None):
@@ -49,9 +49,9 @@ class gated_attention_GRUCell(RNNCell):
     self._kernel_initializer = kernel_initializer
     self._bias_initializer = bias_initializer
     self._attention = memory
-    self._output_argmax = output_argmax
     self._params = params
     self._self_matching = self_matching
+    self._memory_len = memory_len
 
   @property
   def state_size(self):
@@ -70,7 +70,7 @@ class gated_attention_GRUCell(RNNCell):
                                 self._num_units,
                                 params = self._params,
                                 self_matching = self._self_matching,
-                                output_argmax = self._output_argmax)
+                                memory_len = self._memory_len)
     with vs.variable_scope("gates"):  # Reset gate and update gate.
       # We start with bias of 1.0 to not reset and not update.
       bias_ones = self._bias_initializer

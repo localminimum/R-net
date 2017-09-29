@@ -20,8 +20,8 @@ class Params():
     p_chars_dir = "chars_context.txt"
 
     # Training
-    max_q_len = 37
     mode = "train" # case-insensitive options: ["train", "test", "debug"]
+    max_q_len = 37
     dropout = None # dropout probability if None, don't use dropout
     optimizer = "adadelta" # Options: ["adadelta", "adam", "gradientdescent", "adagrad"]
     batch_size = 50 if mode is not "test" else 100# Size of the mini-batch for training
@@ -41,3 +41,4 @@ class Params():
     emb_size = 300 # Embeddings size for both words and characters
     attn_size = 75 # RNN celland attention module size
     num_layers = 3 # Number of layers at question-passage matching and self matching network
+    bias = True # Use bias term in attention

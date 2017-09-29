@@ -114,12 +114,16 @@ class Model(object):
 						self.params["W_v_Phat"]],
 						self.params["W_g"])]
 			for i in range(2):
-				cell_fw = gated_attention_GRUCell(Params.attn_size, memory = memory, params = params[i], self_matching = False if i == 0 else True)
-				cell_bw = gated_attention_GRUCell(Params.attn_size, memory = memory, params = params[i], self_matching = False if i == 0 else True)
+				args = {"num_units": Params.attn_size,
+						"memory": memory,
+						"params": params[i],
+						"self_matching": False if i == 0 else True,
+						"memory_len": self.question_w_len if i == 0 else self.passage_w_len}
+				cell = [gated_attention_GRUCell(**args) for _ in range(2)]
 				inputs = attention_rnn(inputs,
 							self.passage_w_len,
 							Params.attn_size,
-							(cell_fw, cell_bw),
+							cell,
 							scope = scopes[i])
 				memory = inputs # self matching (attention over itself)
 			self.self_matching_output = inputs
@@ -136,7 +140,7 @@ class Model(object):
 		params = ((self.params["W_ru_Q"],self.params["W_v_Q"]),
 				(self.params["W_h_P"],self.params["W_h_a"]))
 		cell = apply_dropout(tf.contrib.rnn.GRUCell(Params.attn_size*2), is_training = self.is_training)
-		self.points_logits = pointer_net(self.final_bidirectional_outputs, self.passage_w_len, self.question_encoding, cell, params, scope = "pointer_network")
+		self.points_logits = pointer_net(self.final_bidirectional_outputs, self.passage_w_len, self.question_encoding, self.question_w_len, cell, params, scope = "pointer_network")
 
 	def outputs(self):
 		self.output_index = tf.argmax(self.points_logits, axis = 2)
@@ -145,7 +149,7 @@ class Model(object):
 		with tf.variable_scope("loss"):
 			shapes = self.passage_w.shape
 			self.indices_prob = tf.one_hot(self.indices, shapes[1])
-			self.mean_loss = cross_entropy_with_sequence_mask(tf.nn.softmax(self.points_logits), self.indices_prob)
+			self.mean_loss = cross_entropy_with_sequence_mask(self.points_logits, self.indices_prob)
 			self.optimizer = optimizer_factory[Params.optimizer](**Params.opt_arg[Params.optimizer])
 
 			if Params.clip:
@@ -175,15 +179,10 @@ def debug():
 def test():
 	model = Model(is_training = False); print("Built model")
 	dict_ = pickle.load(open(Params.data_dir + "dictionary.pkl","r"))
-	glove = np.memmap(Params.data_dir + "glove.np", dtype = np.float32, mode = "r")
-	glove = np.reshape(glove,(Params.vocab_size,Params.emb_size))
-	char_glove = np.memmap(Params.data_dir + "glove_char.np",dtype = np.float32, mode = "r")
-	char_glove = np.reshape(char_glove,(Params.char_vocab_size,Params.emb_size))
 	with model.graph.as_default():
 		sv = tf.train.Supervisor()
 		with sv.managed_session() as sess:
 			sv.saver.restore(sess, tf.train.latest_checkpoint(Params.logdir))
-			sess.run(model.emb_assign, {model.word_embeddings_placeholder:glove, model.char_embeddings_placeholder:char_glove})
 			EM, F1 = 0.0, 0.0
 			for step in tqdm(range(model.num_batch), total = model.num_batch, ncols=70, leave=False, unit='b'):
 				index, ground_truth, passage = sess.run([model.output_index, model.indices, model.passage_w])
@@ -198,10 +197,12 @@ def test():
 def main():
 	model = Model(is_training = True); print("Built model")
 	dict_ = pickle.load(open(Params.data_dir + "dictionary.pkl","r"))
-	glove = np.memmap(Params.data_dir + "glove.np", dtype = np.float32, mode = "r")
-	glove = np.reshape(glove,(Params.vocab_size,Params.emb_size))
-	char_glove = np.memmap(Params.data_dir + "glove_char.np",dtype = np.float32, mode = "r")
-	char_glove = np.reshape(char_glove,(Params.char_vocab_size,Params.emb_size))
+	if not os.path.isfile(os.path.join(Params.logdir,"checkpoint")):
+		init = True
+		glove = np.memmap(Params.data_dir + "glove.np", dtype = np.float32, mode = "r")
+		glove = np.reshape(glove,(Params.vocab_size,Params.emb_size))
+		char_glove = np.memmap(Params.data_dir + "glove_char.np",dtype = np.float32, mode = "r")
+		char_glove = np.reshape(char_glove,(Params.char_vocab_size,Params.emb_size))
 	with model.graph.as_default():
 		config = tf.ConfigProto()
 		config.gpu_options.allow_growth = True
@@ -210,7 +211,7 @@ def main():
 									global_step = model.global_step,
 									init_op = model.init_op)
 		with sv.managed_session(config = config) as sess:
-			sess.run(model.emb_assign, {model.word_embeddings_placeholder:glove, model.char_embeddings_placeholder:char_glove})
+			if init: sess.run(model.emb_assign, {model.word_embeddings_placeholder:glove, model.char_embeddings_placeholder:char_glove})
 			for epoch in range(1, Params.num_epochs+1):
 				if sv.should_stop(): break
 				for step in tqdm(range(model.num_batch), total = model.num_batch, ncols=70, leave=False, unit='b'):
