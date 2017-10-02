@@ -197,12 +197,13 @@ def test():
 def main():
 	model = Model(is_training = True); print("Built model")
 	dict_ = pickle.load(open(Params.data_dir + "dictionary.pkl","r"))
-	if not os.path.isfile(os.path.join(Params.logdir,"checkpoint")):
-		init = True
-		glove = np.memmap(Params.data_dir + "glove.np", dtype = np.float32, mode = "r")
-		glove = np.reshape(glove,(Params.vocab_size,Params.emb_size))
-		char_glove = np.memmap(Params.data_dir + "glove_char.np",dtype = np.float32, mode = "r")
-		char_glove = np.reshape(char_glove,(Params.char_vocab_size,Params.emb_size))
+	# init = False
+	# if not os.path.isfile(os.path.join(Params.logdir,"checkpoint")):
+		# init = True
+	glove = np.memmap(Params.data_dir + "glove.np", dtype = np.float32, mode = "r")
+	glove = np.reshape(glove,(Params.vocab_size,Params.emb_size))
+	char_glove = np.memmap(Params.data_dir + "glove_char.np",dtype = np.float32, mode = "r")
+	char_glove = np.reshape(char_glove,(Params.char_vocab_size,Params.emb_size))
 	with model.graph.as_default():
 		config = tf.ConfigProto()
 		config.gpu_options.allow_growth = True
@@ -211,7 +212,7 @@ def main():
 									global_step = model.global_step,
 									init_op = model.init_op)
 		with sv.managed_session(config = config) as sess:
-			if init: sess.run(model.emb_assign, {model.word_embeddings_placeholder:glove, model.char_embeddings_placeholder:char_glove})
+			sess.run(model.emb_assign, {model.word_embeddings_placeholder:glove, model.char_embeddings_placeholder:char_glove})
 			for epoch in range(1, Params.num_epochs+1):
 				if sv.should_stop(): break
 				for step in tqdm(range(model.num_batch), total = model.num_batch, ncols=70, leave=False, unit='b'):

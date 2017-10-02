@@ -60,10 +60,15 @@ def apply_dropout(inputs, dropout = Params.dropout, is_training = True):
 
 def bidirectional_GRU(inputs, inputs_len, cell = None, units = Params.attn_size, layers = 1, scope = "Bidirectional_GRU", output = 0, is_training = True, reuse = None):
     '''
-    Bidirectional recurrent neural network with GRU cells
+    Bidirectional recurrent neural network with GRU cells.
 
     Args:
-        inputs:
+        inputs:     rnn input of shape (batch_size, timestep, dim)
+        inputs_len: rnn input_len of shape (batch_size, )
+        cell:       rnn cell of type RNN_Cell.
+        output:     if 0, output returns rnn output for every timestep,
+                    if 1, output returns concatenated state of backward and
+                    forward rnn.
     '''
     with tf.variable_scope(scope, reuse = reuse):
         if cell is not None:
