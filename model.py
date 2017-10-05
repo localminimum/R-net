@@ -106,20 +106,20 @@ class Model(object):
 			memory = self.question_encoding
 			inputs = self.passage_encoding
 			scopes = ["question_passage_matching", "self_matching"]
-			params = [([self.params["W_u_Q"],
-						self.params["W_u_P"],
-						self.params["W_v_P"]],
-						self.params["W_g"]),
-					([self.params["W_v_P_2"],
-						self.params["W_v_Phat"]],
-						self.params["W_g"])]
+			params = [(([self.params["W_u_Q"],
+					self.params["W_u_P"],
+					self.params["W_v_P"]],self.params["v"]),
+					self.params["W_g"]),
+				(([self.params["W_v_P_2"],
+					self.params["W_v_Phat"]],self.params["v"]),
+					self.params["W_g"])]
 			for i in range(2):
 				args = {"num_units": Params.attn_size,
 						"memory": memory,
 						"params": params[i],
 						"self_matching": False if i == 0 else True,
 						"memory_len": self.question_w_len if i == 0 else self.passage_w_len}
-				cell = [gated_attention_GRUCell(**args) for _ in range(2)]
+				cell = [apply_dropout(gated_attention_GRUCell(**args), is_training = self.is_training) for _ in range(2)]
 				inputs = attention_rnn(inputs,
 							self.passage_w_len,
 							Params.attn_size,
@@ -137,8 +137,8 @@ class Model(object):
 													is_training = self.is_training)
 
 	def pointer_network(self):
-		params = ((self.params["W_ru_Q"],self.params["W_v_Q"]),
-				(self.params["W_h_P"],self.params["W_h_a"]))
+		params = (([self.params["W_u_Q"],self.params["W_v_Q"]],self.params["v"]),
+				([self.params["W_h_P"],self.params["W_h_a"]],self.params["v"]))
 		cell = apply_dropout(tf.contrib.rnn.GRUCell(Params.attn_size*2), is_training = self.is_training)
 		self.points_logits = pointer_net(self.final_bidirectional_outputs, self.passage_w_len, self.question_encoding, self.question_w_len, cell, params, scope = "pointer_network")
 
@@ -173,7 +173,7 @@ class Model(object):
 		self.merged = tf.summary.merge_all()
 
 def debug():
-	model = Model(is_training = True)
+	model = Model(is_training = False)
 	print("Built model")
 
 def test():
@@ -197,13 +197,13 @@ def test():
 def main():
 	model = Model(is_training = True); print("Built model")
 	dict_ = pickle.load(open(Params.data_dir + "dictionary.pkl","r"))
-	# init = False
-	# if not os.path.isfile(os.path.join(Params.logdir,"checkpoint")):
-		# init = True
-	glove = np.memmap(Params.data_dir + "glove.np", dtype = np.float32, mode = "r")
-	glove = np.reshape(glove,(Params.vocab_size,Params.emb_size))
-	char_glove = np.memmap(Params.data_dir + "glove_char.np",dtype = np.float32, mode = "r")
-	char_glove = np.reshape(char_glove,(Params.char_vocab_size,Params.emb_size))
+	init = False
+	if not os.path.isfile(os.path.join(Params.logdir,"checkpoint")):
+		init = True
+		glove = np.memmap(Params.data_dir + "glove.np", dtype = np.float32, mode = "r")
+		glove = np.reshape(glove,(Params.vocab_size,Params.emb_size))
+		char_glove = np.memmap(Params.data_dir + "glove_char.np",dtype = np.float32, mode = "r")
+		char_glove = np.reshape(char_glove,(Params.char_vocab_size,Params.emb_size))
 	with model.graph.as_default():
 		config = tf.ConfigProto()
 		config.gpu_options.allow_growth = True
@@ -212,7 +212,7 @@ def main():
 									global_step = model.global_step,
 									init_op = model.init_op)
 		with sv.managed_session(config = config) as sess:
-			sess.run(model.emb_assign, {model.word_embeddings_placeholder:glove, model.char_embeddings_placeholder:char_glove})
+			if init: sess.run(model.emb_assign, {model.word_embeddings_placeholder:glove, model.char_embeddings_placeholder:char_glove})
 			for epoch in range(1, Params.num_epochs+1):
 				if sv.should_stop(): break
 				for step in tqdm(range(model.num_batch), total = model.num_batch, ncols=70, leave=False, unit='b'):
