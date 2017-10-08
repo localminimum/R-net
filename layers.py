@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
 #/usr/bin/python2
 
+import tensorflow as tf
+import numpy as np
+
 from tensorflow.contrib.rnn import MultiRNNCell
 from tensorflow.contrib.rnn import RNNCell
 from params import Params
-import tensorflow as tf
-import numpy as np
 
 '''
 attention weights from https://www.microsoft.com/en-us/research/wp-content/uploads/2017/05/r-net.pdf
@@ -30,7 +31,7 @@ def get_attn_params(attn_size,initializer = tf.truncated_normal_initializer):
     '''
     with tf.variable_scope("attention_weights"):
         params = {"W_u_Q":tf.get_variable("W_u_Q",dtype = tf.float32, shape = (2 * attn_size, attn_size), initializer = initializer()),
-                "W_ru_Q":tf.get_variable("W_ru_Q",dtype = tf.float32, shape = (2 * attn_size, 2 * attn_size), initializer = initializer()),
+                #"W_ru_Q":tf.get_variable("W_ru_Q",dtype = tf.float32, shape = (2 * attn_size, 2 * attn_size), initializer = initializer()),
                 "W_u_P":tf.get_variable("W_u_P",dtype = tf.float32, shape = (2 * attn_size, attn_size), initializer = initializer()),
                 "W_v_P":tf.get_variable("W_v_P",dtype = tf.float32, shape = (attn_size, attn_size), initializer = initializer()),
                 "W_v_P_2":tf.get_variable("W_v_P_2",dtype = tf.float32, shape = (2 * attn_size, attn_size), initializer = initializer()),
@@ -38,7 +39,8 @@ def get_attn_params(attn_size,initializer = tf.truncated_normal_initializer):
                 "W_h_P":tf.get_variable("W_h_P",dtype = tf.float32, shape = (2 * attn_size, attn_size), initializer = initializer()),
                 "W_v_Phat":tf.get_variable("W_v_Phat",dtype = tf.float32, shape = (2 * attn_size, attn_size), initializer = initializer()),
                 "W_h_a":tf.get_variable("W_h_a",dtype = tf.float32, shape = (2 * attn_size, attn_size), initializer = initializer()),
-                "W_v_Q":tf.get_variable("W_v_Q",dtype = tf.float32, shape = (attn_size,  2 * attn_size), initializer = initializer())}
+                "W_v_Q":tf.get_variable("W_v_Q",dtype = tf.float32, shape = (attn_size,  attn_size), initializer = initializer()),
+		"v":tf.get_variable("v",dtype = tf.float32, shape = (attn_size), initializer =initializer())}
         return params
 
 def encoding(word, char, word_embeddings, char_embeddings, scope = "embedding"):
@@ -49,7 +51,7 @@ def encoding(word, char, word_embeddings, char_embeddings, scope = "embedding"):
 
 def apply_dropout(inputs, dropout = Params.dropout, is_training = True):
     '''
-    Currently not implemented due to high bias error in the training results
+    Default is set to None due to high bias error
     '''
     if not is_training or Params.dropout is None:
         return inputs
@@ -60,21 +62,26 @@ def apply_dropout(inputs, dropout = Params.dropout, is_training = True):
 
 def bidirectional_GRU(inputs, inputs_len, cell = None, units = Params.attn_size, layers = 1, scope = "Bidirectional_GRU", output = 0, is_training = True, reuse = None):
     '''
-    Bidirectional recurrent neural network with GRU cells
+    Bidirectional recurrent neural network with GRU cells.
 
     Args:
-        inputs:
+        inputs:     rnn input of shape (batch_size, timestep, dim)
+        inputs_len: rnn input_len of shape (batch_size, )
+        cell:       rnn cell of type RNN_Cell.
+        output:     if 0, output returns rnn output for every timestep,
+                    if 1, output returns concatenated state of backward and
+                    forward rnn.
     '''
     with tf.variable_scope(scope, reuse = reuse):
         if cell is not None:
             (cell_fw, cell_bw) = cell
         else:
+            # if no cells are provided, use standard GRU cell implementation
             if layers > 1:
-                cell_fw = MultiRNNCell([tf.contrib.rnn.GRUCell(units) for _ in range(layers)])
-                cell_bw = MultiRNNCell([tf.contrib.rnn.GRUCell(units) for _ in range(layers)])
+                cell_fw = MultiRNNCell([apply_dropout(tf.contrib.rnn.GRUCell(units), is_training = is_training) for _ in range(layers)])
+                cell_bw = MultiRNNCell([apply_dropout(tf.contrib.rnn.GRUCell(units), is_training = is_training) for _ in range(layers)])
             else:
-                cell_fw = tf.contrib.rnn.GRUCell(units)
-                cell_bw = tf.contrib.rnn.GRUCell(units)
+                cell_fw, cell_bw = [apply_dropout(tf.contrib.rnn.GRUCell(units), is_training = is_training) for _ in range(2)]
 
         shapes = inputs.get_shape().as_list()
         if len(shapes) > 3:
@@ -89,6 +96,20 @@ def bidirectional_GRU(inputs, inputs_len, cell = None, units = Params.attn_size,
             return tf.reshape(tf.concat(states,1),(Params.batch_size, shapes[1], 2*units))
 
 def pointer_net(passage, passage_len, question, question_len, cell, params, scope = "pointer_network"):
+    '''
+    Answer pointer network as proposed in https://arxiv.org/pdf/1506.03134.pdf.
+
+    Args:
+        passage:        RNN passage output from the bidirectional readout layer (batch_size, timestep, dim)
+        passage_len:    variable lengths for passage length
+        question:       RNN question output of shape (batch_size, timestep, dim) for question pooling
+        question_len:   Variable lengths for question length
+        cell:           rnn cell of type RNN_Cell.
+        params:         Appropriate weight matrices for attention pooling computation
+
+    Returns:
+        softmax logits for the answer pointer of the beginning and the end of the answer span
+    '''
     with tf.variable_scope(scope):
         weights_q, weights_p = params
         shapes = passage.get_shape().as_list()
@@ -149,6 +170,7 @@ def mask_attn_score(score, memory_sequence_length, score_mask_value = -1e8):
 def attention(inputs, units, weights, scope = "attention", memory_len = None, reuse = None):
     with tf.variable_scope(scope, reuse = reuse):
         outputs_ = []
+	weights, v = weights
         for i, (inp,w) in enumerate(zip(inputs,weights)):
             shapes = inp.shape.as_list()
             inp = tf.reshape(inp, (-1, shapes[-1]))
@@ -167,7 +189,7 @@ def attention(inputs, units, weights, scope = "attention", memory_len = None, re
         if Params.bias:
             b = tf.get_variable("b", shape = outputs.shape[-1], dtype = tf.float32, initializer = tf.contrib.layers.xavier_initializer())
             outputs += b
-        v = tf.get_variable("v", shape = outputs.shape[-1], dtype = tf.float32, initializer = tf.contrib.layers.xavier_initializer())
+        #v = tf.get_variable("v", shape = outputs.shape[-1], dtype = tf.float32, initializer = tf.contrib.layers.xavier_initializer())
         scores = tf.reduce_sum(tf.tanh(outputs) * v, [-1])
         if memory_len is not None:
             scores = mask_attn_score(scores, memory_len)
