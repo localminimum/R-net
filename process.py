@@ -32,14 +32,12 @@ parser.add_argument('-p','--process', default = False, type = str2bool, help='Us
 args = parser.parse_args()
 
 if args.process:
-    from stanford_corenlp_pywrapper import CoreNLP
-    proc = CoreNLP("ssplit",corenlp_jars=[Params.coreNLP_dir + "/*"])
+    import spacy
+    nlp = spacy.load('en')
 
     def tokenize_corenlp(text):
-        parsed = proc.parse_doc(text)
-        tokens = []
-        for sent in parsed['sentences']:
-            tokens.extend(sent['tokens'])
+        parsed = nlp(text)
+        tokens = [i.text for i in parsed]
         return tokens
 
 class data_loader(object):
