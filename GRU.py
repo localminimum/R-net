@@ -9,6 +9,7 @@ import collections
 import hashlib
 import numbers
 
+import tensorflow as tf
 from tensorflow.python.framework import constant_op
 from tensorflow.python.framework import dtypes
 from tensorflow.python.framework import ops
@@ -32,6 +33,52 @@ from layers import gated_attention
 _BIAS_VARIABLE_NAME = "bias"
 _WEIGHTS_VARIABLE_NAME = "kernel"
 
+class GRUCell(RNNCell):
+  """Gated Recurrent Unit cell (cf. http://arxiv.org/abs/1406.1078)."""
+
+  def __init__(self,
+               num_units,
+               activation=None,
+               reuse=None,
+               kernel_initializer=None,
+               bias_initializer=None,
+			   is_training = True):
+    super(GRUCell, self).__init__(_reuse=reuse)
+    self._num_units = num_units
+    self._activation = activation or math_ops.tanh
+    self._kernel_initializer = kernel_initializer
+    self._bias_initializer = bias_initializer
+    self._is_training = is_training
+
+  @property
+  def state_size(self):
+    return self._num_units
+
+  @property
+  def output_size(self):
+    return self._num_units
+
+  def call(self, inputs, state):
+    """Gated recurrent unit (GRU) with nunits cells."""
+    with vs.variable_scope("gates"):  # Reset gate and update gate.
+      # We start with bias of 1.0 to not reset and not update.
+      bias_ones = self._bias_initializer
+      if self._bias_initializer is None:
+        dtype = [a.dtype for a in [inputs, state]][0]
+        bias_ones = init_ops.constant_initializer(1.0, dtype=dtype)
+      value = math_ops.sigmoid(
+          _linear([inputs, state], 2 * self._num_units, True, bias_ones,
+                  self._kernel_initializer))
+      r, u = array_ops.split(value=value, num_or_size_splits=2, axis=1)
+    with vs.variable_scope("candidate"):
+      c = self._activation(
+          _linear([inputs, r * state], self._num_units, True,
+                  self._bias_initializer, self._kernel_initializer))
+      if self._is_training:
+		c = tf.nn.dropout(c, 1 - 0.2)
+    new_h = u * state + (1 - u) * c
+    return new_h, new_h
+
 class gated_attention_GRUCell(RNNCell):
 
   def __init__(self,
@@ -42,7 +89,8 @@ class gated_attention_GRUCell(RNNCell):
                memory_len = None,
                reuse=None,
                kernel_initializer=None,
-               bias_initializer=None):
+               bias_initializer=None,
+			   is_training = True):
     super(gated_attention_GRUCell, self).__init__(_reuse=reuse)
     self._num_units = num_units
     self._activation = math_ops.tanh
@@ -52,6 +100,7 @@ class gated_attention_GRUCell(RNNCell):
     self._params = params
     self._self_matching = self_matching
     self._memory_len = memory_len
+    self._is_training = is_training
 
   @property
   def state_size(self):
@@ -85,6 +134,8 @@ class gated_attention_GRUCell(RNNCell):
       c = self._activation(
           _linear([inputs, r * state], self._num_units, True,
                   self._bias_initializer, self._kernel_initializer))
+      #if self._is_training:
+	#	c = tf.nn.dropout(c, 1 - 0.2)
     new_h = u * state + (1 - u) * c
     return new_h, new_h
 

@@ -128,9 +128,9 @@ def load_data(dir_):
 
     # Get max length to pad
     p_max_word = Params.max_p_len#np.max(p_word_len)
-    p_max_char = min(Params.max_char_len,max_value(p_char_len))
+    p_max_char = Params.max_char_len#,max_value(p_char_len))
     q_max_word = Params.max_q_len#,np.max(q_word_len)
-    q_max_char = min(Params.max_char_len,max_value(q_char_len))
+    q_max_char = Params.max_char_len#,max_value(q_char_len))
 
     # pad_data
     print("Preparing data...")
@@ -158,6 +158,15 @@ def load_data(dir_):
             p_word_len, q_word_len,
             p_char_len, q_char_len,
             indices], shapes)
+
+def get_dev():
+    devset, shapes = load_data(Params.dev_dir)
+    indices = devset[-1]
+    # devset = [np.reshape(input_, shapes[i]) for i,input_ in enumerate(devset)]
+
+    dev_ind = np.arange(indices.shape[0],dtype = np.int32)
+    np.random.shuffle(dev_ind)
+    return devset, dev_ind
 
 def get_batch(is_training = True):
     """Loads training data and put them in queues"""
