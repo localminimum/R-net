@@ -8,6 +8,10 @@ from tensorflow.contrib.rnn import MultiRNNCell
 from tensorflow.contrib.rnn import RNNCell
 from params import Params
 
+from tensorflow.contrib.rnn import MultiRNNCell
+from tensorflow.contrib.rnn import RNNCell
+from params import Params
+from zoneout import ZoneoutWrapper
 '''
 attention weights from https://www.microsoft.com/en-us/research/wp-content/uploads/2017/05/r-net.pdf
 W_u^Q.shape:    (2 * attn_size, attn_size)
@@ -49,16 +53,14 @@ def encoding(word, char, word_embeddings, char_embeddings, scope = "embedding"):
         char_encoding = tf.nn.embedding_lookup(char_embeddings, char)
         return word_encoding, char_encoding
 
-def apply_dropout(inputs, dropout = Params.dropout, is_training = True):
+def apply_zoneout(inputs, dropout = Params.zoneout, is_training = True):
     '''
+    Implementation of Zoneout from https://arxiv.org/pdf/1606.01305.pdf
     Default is set to None due to high bias error
     '''
-    if not is_training or Params.dropout is None:
+    if Params.zoneout is None:
         return inputs
-    if isinstance(inputs, RNNCell):
-        return tf.contrib.rnn.DropoutWrapper(inputs, output_keep_prob=1.0 - dropout, dtype = tf.float32, variational_recurrent = True, input_size = inputs.output_size)
-    else:
-        return tf.nn.dropout(inputs, keep_prob = 1.0 - dropout)
+    return ZoneoutWrapper(inputs, state_zoneout_prob= dropout, is_training = is_training)
 
 def bidirectional_GRU(inputs, inputs_len, cell = None, units = Params.attn_size, layers = 1, scope = "Bidirectional_GRU", output = 0, is_training = True, reuse = None):
     '''

@@ -21,11 +21,11 @@ class Params():
 
     # Training
     mode = "train" # case-insensitive options: ["train", "test", "debug"]
-    dropout = None # dropout probability if None, don't use dropout
-    optimizer = "adadelta" # Options: ["adadelta", "adam", "gradientdescent", "adagrad"]
-    batch_size = 50 if mode is not "test" else 100# Size of the mini-batch for training
+    dropout = 0.2 # dropout probability if None, don't use dropout
+    optimizer = "adam" # Options: ["adadelta", "adam", "gradientdescent", "adagrad"]
+    batch_size = 54 if mode is not "test" else 100# Size of the mini-batch for training
     save_steps = 50 # Save the model at every 50 steps
-    clip = False # clip gradient norm
+    clip = True # clip gradient norm
     norm = 5.0 # global norm
     # Change the hyperparameters of your learning algorithms here
     opt_arg = {'adadelta':{'learning_rate':1, 'rho': 0.95, 'epsilon':1e-6},
@@ -40,6 +40,6 @@ class Params():
     vocab_size = 2196018 # Number of vocabs in glove.840B.300d.txt + 1 for an unknown token
     char_vocab_size = 95 # Number of characters in glove.840B.300d.char.txt + 1 for an unknown character
     emb_size = 300 # Embeddings size for both words and characters
-    attn_size = 75 # RNN celland attention module size
+    attn_size = 64 # RNN celland attention module size
     num_layers = 3 # Number of layers at question-passage matching and self matching network
     bias = True # Use bias term in attention

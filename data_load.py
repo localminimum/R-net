@@ -159,6 +159,15 @@ def load_data(dir_):
             p_char_len, q_char_len,
             indices], shapes)
 
+def get_dev():
+    devset, shapes = load_data(Params.dev_dir)
+    indices = devset[-1]
+    # devset = [np.reshape(input_, shapes[i]) for i,input_ in enumerate(devset)]
+
+    dev_ind = np.arange(indices.shape[0],dtype = np.int32)
+    np.random.shuffle(dev_ind)
+    return devset, dev_ind
+
 def get_batch(is_training = True):
     """Loads training data and put them in queues"""
     with tf.device('/cpu:0'):
