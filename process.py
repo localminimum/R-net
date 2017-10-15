@@ -32,14 +32,12 @@ parser.add_argument('-p','--process', default = False, type = str2bool, help='Us
 args = parser.parse_args()
 
 if args.process:
-    from stanford_corenlp_pywrapper import CoreNLP
-    proc = CoreNLP("ssplit",corenlp_jars=[Params.coreNLP_dir + "/*"])
+    import spacy
+    nlp = spacy.blank('en')
 
     def tokenize_corenlp(text):
-        parsed = proc.parse_doc(text)
-        tokens = []
-        for sent in parsed['sentences']:
-            tokens.extend(sent['tokens'])
+        parsed = nlp(text)
+        tokens = [i.text for i in parsed]
         return tokens
 
 class data_loader(object):
@@ -107,7 +105,7 @@ class data_loader(object):
                 f.write("%s: %s" % (key, value) + "\n")
 
     def loop(self, data, dir_ = Params.train_dir):
-        for topic in data['data']:
+        for topic in tqdm(data['data'], total = len(data['data'])):
             for para in topic['paragraphs']:
 
                 words_c,chars_c = self.add_to_dict(para['context'])
@@ -132,7 +130,7 @@ class data_loader(object):
                     write_file(chars_c,dir_ + Params.p_chars_dir)
 
     def process_word(self,line):
-        for word in splitted_line:
+        for word in line:
             word = word.replace(" ","").strip()
             word = normalize_text(''.join(word).decode("utf-8"))
             if word:
@@ -231,9 +229,9 @@ def pad_data(data, max_word):
     padded_data = np.zeros((len(data),max_word),dtype = np.int32)
     for i,line in enumerate(data):
         for j,word in enumerate(line):
-	    if j >= max_word:
-	        print("skipped a word")
-		continue	
+    	    if j >= max_word:
+                print("skipped a word")
+                continue
             padded_data[i,j] = word
     return padded_data
 
@@ -241,14 +239,22 @@ def pad_char_data(data, max_char, max_words):
     padded_data = np.zeros((len(data),max_words,max_char),dtype = np.int32)
     for i,line in enumerate(data):
         for j,word in enumerate(line):
-	    if j >= max_words:
-		print("skipped a word")
-		break
+            if j >= max_words:
+		          break
             for k,char in enumerate(word):
                 if k >= max_char:
                     # ignore the rest of the word if it's longer than the limit
                     break
                 padded_data[i,j,k] = char
+    return padded_data
+
+def pad_char_len(data, max_word, max_char):
+    padded_data = np.zeros((len(data), max_word), dtype=np.int32)
+    for i, line in enumerate(data):
+        for j, word in enumerate(line):
+            if j >= max_word:
+                break
+            padded_data[i, j] = word if word <= max_char else max_char
     return padded_data
 
 def load_target(dir):
@@ -318,6 +324,7 @@ def main():
     load_glove(Params.glove_dir,"glove",vocab_size = Params.vocab_size)
     load_glove(Params.glove_char,"glove_char", vocab_size = Params.char_vocab_size)
     print("Processing completed successfully")
+    print("Unknown words ratio: {} / {}".format(loader.w_unknown_count,loader.w_occurence))
 
 if __name__ == "__main__":
     main()

@@ -10,28 +10,61 @@ import hashlib
 import numbers
 
 import tensorflow as tf
-from tensorflow.python.framework import constant_op
-from tensorflow.python.framework import dtypes
-from tensorflow.python.framework import ops
-from tensorflow.python.framework import tensor_shape
-from tensorflow.python.framework import tensor_util
-from tensorflow.python.layers import base as base_layer
-from tensorflow.python.ops import array_ops
 from tensorflow.python.ops import clip_ops
+from tensorflow.python.ops import array_ops
 from tensorflow.python.ops import init_ops
 from tensorflow.python.ops import math_ops
 from tensorflow.python.ops import nn_ops
-from tensorflow.python.ops import partitioned_variables
-from tensorflow.python.ops import random_ops
 from tensorflow.python.ops import variable_scope as vs
-from tensorflow.python.ops import variables as tf_variables
-from tensorflow.python.platform import tf_logging as logging
 from tensorflow.python.util import nest
 from tensorflow.contrib.rnn import RNNCell
 from layers import gated_attention
+from params import Params
 
 _BIAS_VARIABLE_NAME = "bias"
 _WEIGHTS_VARIABLE_NAME = "kernel"
+
+class SRUCell(RNNCell):
+    """Simple Recurrent Unit (SRU).
+       This implementation is based on:
+       Tao Lei and Yu Zhang,
+       "Training RNNs as Fast as CNNs,"
+       https://arxiv.org/abs/1709.02755
+    """
+
+    def __init__(self, num_units, activation=None, is_training = True, reuse=None):
+        self._num_units = num_units
+        self._activation = activation or tf.tanh
+        self._is_training = is_training
+
+    @property
+    def output_size(self):
+        return self._num_units
+
+    @property
+    def state_size(self):
+        return self._num_units
+
+    def __call__(self, inputs, state, scope=None):
+        """Run one step of SRU."""
+        with tf.variable_scope(scope or type(self).__name__):  # "SRUCell"
+            with tf.variable_scope("x_hat"):
+                x = linear([inputs], self._num_units, False)
+            with tf.variable_scope("gates"):
+                concat = tf.sigmoid(linear([inputs], 2 * self._num_units, True))
+                f, r = tf.split(concat, 2, axis = 1)
+            with tf.variable_scope("candidates"):
+                c = self._activation(f * state + (1 - f) * x)
+                # variational dropout as suggested in the paper (disabled)
+                # if self._is_training and Params.dropout is not None:
+                #     c = tf.nn.dropout(c, keep_prob = 1 - Params.dropout)
+            # highway connection
+            # Our implementation is slightly different to the paper
+            # https://arxiv.org/abs/1709.02755 in a way that highway network
+            # uses x_hat instead of the cell inputs. Check equation (7) from the original
+            # paper for SRU.
+            h = r * c + (1 - r) * x
+        return h, c
 
 class GRUCell(RNNCell):
   """Gated Recurrent Unit cell (cf. http://arxiv.org/abs/1406.1078)."""
@@ -67,19 +100,20 @@ class GRUCell(RNNCell):
         dtype = [a.dtype for a in [inputs, state]][0]
         bias_ones = init_ops.constant_initializer(1.0, dtype=dtype)
       value = math_ops.sigmoid(
-          _linear([inputs, state], 2 * self._num_units, True, bias_ones,
+          linear([inputs, state], 2 * self._num_units, True, bias_ones,
                   self._kernel_initializer))
       r, u = array_ops.split(value=value, num_or_size_splits=2, axis=1)
     with vs.variable_scope("candidate"):
       c = self._activation(
-          _linear([inputs, r * state], self._num_units, True,
+          linear([inputs, r * state], self._num_units, True,
                   self._bias_initializer, self._kernel_initializer))
-      if self._is_training:
-		c = tf.nn.dropout(c, 1 - 0.2)
+    #   recurrent dropout as proposed in https://arxiv.org/pdf/1603.05118.pdf (currently disabled)
+      #if self._is_training and Params.dropout is not None:
+        #c = tf.nn.dropout(c, 1 - Params.dropout)
     new_h = u * state + (1 - u) * c
     return new_h, new_h
 
-class gated_attention_GRUCell(RNNCell):
+class gated_attention_Wrapper(RNNCell):
 
   def __init__(self,
                num_units,
@@ -90,8 +124,11 @@ class gated_attention_GRUCell(RNNCell):
                reuse=None,
                kernel_initializer=None,
                bias_initializer=None,
-			   is_training = True):
-    super(gated_attention_GRUCell, self).__init__(_reuse=reuse)
+			   is_training = True,
+               use_SRU = False):
+    super(gated_attention_Wrapper, self).__init__(_reuse=reuse)
+    cell = SRUCell if use_SRU else GRUCell
+    self._cell = cell(num_units, is_training = is_training)
     self._num_units = num_units
     self._activation = math_ops.tanh
     self._kernel_initializer = kernel_initializer
@@ -120,27 +157,11 @@ class gated_attention_GRUCell(RNNCell):
                                 params = self._params,
                                 self_matching = self._self_matching,
                                 memory_len = self._memory_len)
-    with vs.variable_scope("gates"):  # Reset gate and update gate.
-      # We start with bias of 1.0 to not reset and not update.
-      bias_ones = self._bias_initializer
-      if self._bias_initializer is None:
-        dtype = [a.dtype for a in [inputs, state]][0]
-        bias_ones = init_ops.constant_initializer(1.0, dtype=dtype)
-      value = math_ops.sigmoid(
-          _linear([inputs, state], 2 * self._num_units, True, bias_ones,
-                  self._kernel_initializer))
-      r, u = array_ops.split(value=value, num_or_size_splits=2, axis=1)
-    with vs.variable_scope("candidate"):
-      c = self._activation(
-          _linear([inputs, r * state], self._num_units, True,
-                  self._bias_initializer, self._kernel_initializer))
-      #if self._is_training:
-	#	c = tf.nn.dropout(c, 1 - 0.2)
-    new_h = u * state + (1 - u) * c
-    return new_h, new_h
+    output, new_state = self._cell(inputs, state)
+    return output, new_state
 
 
-def _linear(args,
+def linear(args,
             output_size,
             bias,
             bias_initializer=None,
