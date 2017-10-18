@@ -21,7 +21,8 @@ class Params():
 
     # Training
     mode = "train" # case-insensitive options: ["train", "test", "debug"]
-    zoneout = 0.1 # zoneout probability if None, don't use dropout
+    dropout = None # dropout probability, if None, don't use dropout
+    zoneout = None # zoneout probability, if None, don't use zoneout
     optimizer = "adam" # Options: ["adadelta", "adam", "gradientdescent", "adagrad"]
     batch_size = 50 if mode is not "test" else 100# Size of the mini-batch for training
     save_steps = 50 # Save the model at every 50 steps
@@ -34,12 +35,13 @@ class Params():
                 'adagrad':{'learning_rate':1}}
 
     # Architecture
+    SRU = True # Use SRU cell, NOTE: only use with dropout, if False, use standard GRU cell
     max_p_len = 300 # Maximum number of words in each passage context
     max_q_len = 30 # Maximum number of words in each question context
     max_char_len = 20 # Maximum number of characters in a word
     vocab_size = 2196018 # Number of vocabs in glove.840B.300d.txt + 1 for an unknown token
     char_vocab_size = 95 # Number of characters in glove.840B.300d.char.txt + 1 for an unknown character
     emb_size = 300 # Embeddings size for both words and characters
-    attn_size = 48 # RNN cell and attention module size
+    attn_size = 64 # RNN cell and attention module size
     num_layers = 3 # Number of layers at question-passage matching
     bias = True # Use bias term in attention

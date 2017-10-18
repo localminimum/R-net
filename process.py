@@ -231,7 +231,7 @@ def pad_data(data, max_word):
         for j,word in enumerate(line):
 	    if j >= max_word:
 	        print("skipped a word")
-		continue	
+		continue
             padded_data[i,j] = word
     return padded_data
 

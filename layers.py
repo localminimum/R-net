@@ -49,15 +49,23 @@ def encoding(word, char, word_embeddings, char_embeddings, scope = "embedding"):
         char_encoding = tf.nn.embedding_lookup(char_embeddings, char)
         return word_encoding, char_encoding
 
-def apply_zoneout(inputs, dropout = Params.zoneout, is_training = True):
+def apply_dropout(inputs, size = None, is_training = True):
     '''
+    Implementation of variational dropout https://arxiv.org/pdf/1512.05287.pdf and
     Implementation of Zoneout from https://arxiv.org/pdf/1606.01305.pdf
     '''
-    if Params.zoneout is None:
+    if Params.dropout is None and Params.zoneout is None:
         return inputs
-    return ZoneoutWrapper(inputs, state_zoneout_prob= dropout, is_training = is_training)
+    if Params.zoneout is not None:
+        return ZoneoutWrapper(inputs, state_zoneout_prob= Params.zoneout, is_training = is_training)
+    else:
+        return tf.contrib.rnn.DropoutWrapper(inputs,
+                                            input_keep_prob= 1 - Params.dropout,
+                                            variational_recurrent = True,
+                                            input_size = size,
+                                            dtype = tf.float32)
 
-def bidirectional_GRU(inputs, inputs_len, cell = None, units = Params.attn_size, layers = 1, scope = "Bidirectional_GRU", output = 0, is_training = True, reuse = None):
+def bidirectional_GRU(inputs, inputs_len, cell = None, cell_fn = tf.contrib.rnn.GRUCell, units = Params.attn_size, layers = 1, scope = "Bidirectional_GRU", output = 0, is_training = True, reuse = None):
     '''
     Bidirectional recurrent neural network with GRU cells.
 
@@ -73,17 +81,18 @@ def bidirectional_GRU(inputs, inputs_len, cell = None, units = Params.attn_size,
         if cell is not None:
             (cell_fw, cell_bw) = cell
         else:
+            shapes = inputs.get_shape().as_list()
+            if len(shapes) > 3:
+                inputs = tf.reshape(inputs,(shapes[0]*shapes[1],shapes[2],-1))
+                inputs_len = tf.reshape(inputs_len,(shapes[0]*shapes[1],))
+
             # if no cells are provided, use standard GRU cell implementation
             if layers > 1:
-                cell_fw = MultiRNNCell([apply_zoneout(tf.contrib.rnn.GRUCell(units), is_training = is_training) for _ in range(layers)])
-                cell_bw = MultiRNNCell([apply_zoneout(tf.contrib.rnn.GRUCell(units), is_training = is_training) for _ in range(layers)])
+                cell_fw = MultiRNNCell([apply_dropout(cell_fn(units), size = inputs.shape[-1] if i == 0 else units, is_training = is_training) for i in range(layers)])
+                cell_bw = MultiRNNCell([apply_dropout(cell_fn(units), size = inputs.shape[-1] if i == 0 else units, is_training = is_training) for i in range(layers)])
             else:
-                cell_fw, cell_bw = [apply_zoneout(tf.contrib.rnn.GRUCell(units), is_training = is_training) for _ in range(2)]
+                cell_fw, cell_bw = [apply_dropout(cell_fn(units), size = inputs.shape[-1], is_training = is_training) for _ in range(2)]
 
-        shapes = inputs.get_shape().as_list()
-        if len(shapes) > 3:
-            inputs = tf.reshape(inputs,(shapes[0]*shapes[1],shapes[2],-1))
-            inputs_len = tf.reshape(inputs_len,(shapes[0]*shapes[1],))
         outputs, states = tf.nn.bidirectional_dynamic_rnn(cell_fw, cell_bw, inputs,
                                                         sequence_length = inputs_len,
                                                         dtype=tf.float32)
