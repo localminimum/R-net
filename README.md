@@ -37,10 +37,13 @@ $ tensorboard --logdir=r-net:train/
 
 # Log
 **18/10/17**
-After some hyperparameter searching, our model quickly reaches EM/F1 score of 50/60 in 4 hours with the hyperparameters suggested in params.py file. However, it quickly overfits after that. **Current best model reaches EM/F1 of 55/67**. .
+After some hyperparameter searching, our model quickly reaches EM/F1 score of 50/60 in 4 hours with the hyperparameters suggested in params.py file. However, it quickly overfits after that. **Current best model reaches EM/F1 of 55/67**.
+
 **05/09/17**
 After rewriting the architectures, the model converges with full dataset and it takes about 20 hours to reach F1/EM=67/60 on training set and 40/30 on dev set. with batch size of 54. Reproducing the results obtained by R-Net in the original paper is a new work in progress.
+
 **02/09/17**
 One of the challenges I faced while training was to fit a minibatch of size 32 or larger into my GTX 1080. Since SQuAD dataset displayed high variance in data, higher batch size was essential in training (otherwise the model doesn't converge). Reducing GPU memory usage significantly to fit batch size of 32 and higher is a work in progress. If you have any suggestions on reducing the GPU memory usage, please put forward a pr.
+
 **27/08/17**
 As a sanity check I trained the network with 3000 independent randomly sampled question-answering pairs. With my GTX 1080, it took about 4 hours and a half for the model to get the gist of what's going on with the data. With full dataset (90,000+ pairs) we are expecting longer time for convergence. Some sort of normalization method might help speed up convergence (though the authors of the original paper didn't mention anything about the normalization).
