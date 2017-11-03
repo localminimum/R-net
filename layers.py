@@ -40,7 +40,7 @@ def get_attn_params(attn_size,initializer = tf.truncated_normal_initializer):
                 "W_v_Phat":tf.get_variable("W_v_Phat",dtype = tf.float32, shape = (2 * attn_size, attn_size), initializer = initializer()),
                 "W_h_a":tf.get_variable("W_h_a",dtype = tf.float32, shape = (2 * attn_size, attn_size), initializer = initializer()),
                 "W_v_Q":tf.get_variable("W_v_Q",dtype = tf.float32, shape = (attn_size,  attn_size), initializer = initializer()),
-		"v":tf.get_variable("v",dtype = tf.float32, shape = (attn_size), initializer =initializer())}
+                "v":tf.get_variable("v",dtype = tf.float32, shape = (attn_size), initializer =initializer())}
         return params
 
 def encoding(word, char, word_embeddings, char_embeddings, scope = "embedding"):
@@ -51,19 +51,20 @@ def encoding(word, char, word_embeddings, char_embeddings, scope = "embedding"):
 
 def apply_dropout(inputs, size = None, is_training = True):
     '''
-    Implementation of variational dropout https://arxiv.org/pdf/1512.05287.pdf and
     Implementation of Zoneout from https://arxiv.org/pdf/1606.01305.pdf
     '''
     if Params.dropout is None and Params.zoneout is None:
         return inputs
     if Params.zoneout is not None:
         return ZoneoutWrapper(inputs, state_zoneout_prob= Params.zoneout, is_training = is_training)
-    else:
+    elif is_training:
         return tf.contrib.rnn.DropoutWrapper(inputs,
-                                            input_keep_prob= 1 - Params.dropout,
-                                            variational_recurrent = True,
-                                            input_size = size,
+                                            output_keep_prob = 1 - Params.dropout,
+                                            # variational_recurrent = True,
+                                            # input_size = size,
                                             dtype = tf.float32)
+    else:
+        return inputs
 
 def bidirectional_GRU(inputs, inputs_len, cell = None, cell_fn = tf.contrib.rnn.GRUCell, units = Params.attn_size, layers = 1, scope = "Bidirectional_GRU", output = 0, is_training = True, reuse = None):
     '''
@@ -176,7 +177,7 @@ def mask_attn_score(score, memory_sequence_length, score_mask_value = -1e8):
 def attention(inputs, units, weights, scope = "attention", memory_len = None, reuse = None):
     with tf.variable_scope(scope, reuse = reuse):
         outputs_ = []
-	weights, v = weights
+        weights, v = weights
         for i, (inp,w) in enumerate(zip(inputs,weights)):
             shapes = inp.shape.as_list()
             inp = tf.reshape(inp, (-1, shapes[-1]))
@@ -200,14 +201,11 @@ def attention(inputs, units, weights, scope = "attention", memory_len = None, re
             scores = mask_attn_score(scores, memory_len)
         return tf.nn.softmax(scores) # all attention output is softmaxed now
 
-def cross_entropy_with_sequence_mask(output, target):
-	cross_entropy = target * tf.log(output + 1e-8)
-	cross_entropy = -tf.reduce_sum(cross_entropy, 2)
-	mask = tf.sign(tf.reduce_max(tf.abs(target), 2))
-	cross_entropy *= mask
-	cross_entropy = tf.reduce_sum(cross_entropy, 1)
-	cross_entropy /= tf.reduce_sum(mask, 1)
-	return tf.reduce_mean(cross_entropy)
+def cross_entropy(output, target):
+    cross_entropy = target * tf.log(output + 1e-8)
+    cross_entropy = -tf.reduce_sum(cross_entropy, 2) # sum across passage timestep
+    cross_entropy = tf.reduce_mean(cross_entropy, 1) # average across pointer networks output
+    return tf.reduce_mean(cross_entropy) # average across batch size
 
 def total_params():
     total_parameters = 0

@@ -56,11 +56,10 @@ class Model(object):
 
 	def encode_ids(self):
 		with tf.device('/cpu:0'):
-			self.char_embeddings = tf.Variable(tf.constant(0.0, shape=[Params.char_vocab_size, Params.emb_size]),trainable=False, name="char_embeddings")
-			self.char_embeddings_placeholder = tf.placeholder(tf.float32,[Params.char_vocab_size, Params.emb_size],"char_embeddings_placeholder")
+			self.char_embeddings = tf.Variable(tf.constant(0.0, shape=[Params.char_vocab_size, Params.char_emb_size]),trainable=True, name="char_embeddings")
 			self.word_embeddings = tf.Variable(tf.constant(0.0, shape=[Params.vocab_size, Params.emb_size]),trainable=False, name="word_embeddings")
 			self.word_embeddings_placeholder = tf.placeholder(tf.float32,[Params.vocab_size, Params.emb_size],"word_embeddings_placeholder")
-			self.emb_assign = tf.group(tf.assign(self.word_embeddings, self.word_embeddings_placeholder),tf.assign(self.char_embeddings, self.char_embeddings_placeholder))
+			self.emb_assign = tf.assign(self.word_embeddings, self.word_embeddings_placeholder)
 
 		# Embed the question and passage information for word and character tokens
 		self.passage_word_encoded, self.passage_char_encoded = encoding(self.passage_w,
@@ -139,6 +138,7 @@ class Model(object):
 	def bidirectional_readout(self):
 		self.final_bidirectional_outputs = bidirectional_GRU(self.self_matching_output,
 									self.passage_w_len,
+									cell_fn = SRUCell if Params.SRU else GRUCell,
 									# layers = Params.num_layers, # or 1? not specified in the original paper
 									scope = "bidirectional_readout",
 									output = 0,
@@ -147,7 +147,7 @@ class Model(object):
 	def pointer_network(self):
 		params = (([self.params["W_u_Q"],self.params["W_v_Q"]],self.params["v"]),
 				([self.params["W_h_P"],self.params["W_h_a"]],self.params["v"]))
-		cell = apply_dropout(tf.contrib.rnn.GRUCell(Params.attn_size*2), size = self.final_bidirectional_outputs.shape[-1], is_training = self.is_training)
+		cell = apply_dropout(SRUCell(Params.attn_size*2), size = self.final_bidirectional_outputs.shape[-1], is_training = self.is_training)
 		self.points_logits = pointer_net(self.final_bidirectional_outputs, self.passage_w_len, self.question_encoding, self.question_w_len, cell, params, scope = "pointer_network")
 
 	def outputs(self):
@@ -157,7 +157,7 @@ class Model(object):
 		with tf.variable_scope("loss"):
 			shapes = self.passage_w.shape
 			self.indices_prob = tf.one_hot(self.indices, shapes[1])
-			self.mean_loss = cross_entropy_with_sequence_mask(self.points_logits, self.indices_prob)
+			self.mean_loss = cross_entropy(self.points_logits, self.indices_prob)
 			self.optimizer = optimizer_factory[Params.optimizer](**Params.opt_arg[Params.optimizer])
 
 			if Params.clip:
@@ -214,8 +214,6 @@ def main():
 		init = True
 		glove = np.memmap(Params.data_dir + "glove.np", dtype = np.float32, mode = "r")
 		glove = np.reshape(glove,(Params.vocab_size,Params.emb_size))
-		char_glove = np.memmap(Params.data_dir + "glove_char.np",dtype = np.float32, mode = "r")
-		char_glove = np.reshape(char_glove,(Params.char_vocab_size,Params.emb_size))
 	with model.graph.as_default():
 		config = tf.ConfigProto()
 		config.gpu_options.allow_growth = True
@@ -224,7 +222,7 @@ def main():
 						global_step = model.global_step,
 						init_op = model.init_op)
 		with sv.managed_session(config = config) as sess:
-			if init: sess.run(model.emb_assign, {model.word_embeddings_placeholder:glove, model.char_embeddings_placeholder:char_glove})
+			if init: sess.run(model.emb_assign, {model.word_embeddings_placeholder:glove})
 			for epoch in range(1, Params.num_epochs+1):
 				if sv.should_stop(): break
 				for step in tqdm(range(model.num_batch), total = model.num_batch, ncols=70, leave=False, unit='b'):

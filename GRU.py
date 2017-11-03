@@ -55,9 +55,9 @@ class SRUCell(RNNCell):
                 f, r = tf.split(concat, 2, axis = 1)
             with tf.variable_scope("candidates"):
                 c = self._activation(f * state + (1 - f) * x)
-                # variational dropout as suggested in the paper
-                if self._is_training and Params.dropout is not None:
-                    c = tf.nn.dropout(c, keep_prob = 1 - Params.dropout)
+                # variational dropout as suggested in the paper (disabled)
+                # if self._is_training and Params.dropout is not None:
+                #     c = tf.nn.dropout(c, keep_prob = 1 - Params.dropout)
             # highway connection
             # Our implementation is slightly different to the paper
             # https://arxiv.org/abs/1709.02755 in a way that highway network
@@ -108,8 +108,8 @@ class GRUCell(RNNCell):
           linear([inputs, r * state], self._num_units, True,
                   self._bias_initializer, self._kernel_initializer))
     #   recurrent dropout as proposed in https://arxiv.org/pdf/1603.05118.pdf (currently disabled)
-    #   if self._is_training:
-	# 	c = tf.nn.dropout(c, 1 - 0.2)
+      #if self._is_training and Params.dropout is not None:
+        #c = tf.nn.dropout(c, 1 - Params.dropout)
     new_h = u * state + (1 - u) * c
     return new_h, new_h
 

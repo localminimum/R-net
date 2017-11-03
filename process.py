@@ -105,7 +105,7 @@ class data_loader(object):
                 f.write("%s: %s" % (key, value) + "\n")
 
     def loop(self, data, dir_ = Params.train_dir):
-        for topic in data['data']:
+        for topic in tqdm(data['data'], total = len(data['data'])):
             for para in topic['paragraphs']:
 
                 words_c,chars_c = self.add_to_dict(para['context'])
@@ -130,7 +130,7 @@ class data_loader(object):
                     write_file(chars_c,dir_ + Params.p_chars_dir)
 
     def process_word(self,line):
-        for word in splitted_line:
+        for word in line:
             word = word.replace(" ","").strip()
             word = normalize_text(''.join(word).decode("utf-8"))
             if word:
@@ -316,6 +316,7 @@ def main():
     load_glove(Params.glove_dir,"glove",vocab_size = Params.vocab_size)
     load_glove(Params.glove_char,"glove_char", vocab_size = Params.char_vocab_size)
     print("Processing completed successfully")
+    print("Unknown words ratio: {} / {}".format(loader.w_unknown_count,loader.w_occurence))
 
 if __name__ == "__main__":
     main()
