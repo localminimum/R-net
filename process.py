@@ -229,9 +229,9 @@ def pad_data(data, max_word):
     padded_data = np.zeros((len(data),max_word),dtype = np.int32)
     for i,line in enumerate(data):
         for j,word in enumerate(line):
-	    if j >= max_word:
-	        print("skipped a word")
-		continue
+    	    if j >= max_word:
+                print("skipped a word")
+                continue
             padded_data[i,j] = word
     return padded_data
 
@@ -239,14 +239,22 @@ def pad_char_data(data, max_char, max_words):
     padded_data = np.zeros((len(data),max_words,max_char),dtype = np.int32)
     for i,line in enumerate(data):
         for j,word in enumerate(line):
-	    if j >= max_words:
-		print("skipped a word")
-		break
+            if j >= max_words:
+		          break
             for k,char in enumerate(word):
                 if k >= max_char:
                     # ignore the rest of the word if it's longer than the limit
                     break
                 padded_data[i,j,k] = char
+    return padded_data
+
+def pad_char_len(data, max_word, max_char):
+    padded_data = np.zeros((len(data), max_word), dtype=np.int32)
+    for i, line in enumerate(data):
+        for j, word in enumerate(line):
+            if j >= max_word:
+                break
+            padded_data[i, j] = word if word <= max_char else max_char
     return padded_data
 
 def load_target(dir):
