@@ -8,7 +8,6 @@ The dataset used for this task is Stanford Question Answering Dataset (https://r
 ## Requirements
   * Python2.7
   * NumPy
-  * nltk
   * tqdm
   * spacy
   * TensorFlow==1.2

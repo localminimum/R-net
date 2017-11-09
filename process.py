@@ -33,7 +33,7 @@ args = parser.parse_args()
 
 if args.process:
     import spacy
-    nlp = spacy.load('en')
+    nlp = spacy.blank('en')
 
     def tokenize_corenlp(text):
         parsed = nlp(text)
