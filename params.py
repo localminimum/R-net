@@ -35,11 +35,11 @@ class Params():
                 'adagrad':{'learning_rate':1}}
 
     # Architecture
-    SRU = True # Use SRU cell, NOTE: only use with dropout, if False, use standard GRU cell
+    SRU = True # Use SRU cell, if False, use standard GRU cell
     max_p_len = 300 # Maximum number of words in each passage context
     max_q_len = 30 # Maximum number of words in each question context
     max_char_len = 20 # Maximum number of characters in a word
-    vocab_size = 2196018 # Number of vocabs in glove.840B.300d.txt + 1 for an unknown token
+    vocab_size = 91604 # Number of vocabs in glove.840B.300d.txt + 1 for an unknown token
     char_vocab_size = 95 # Number of characters in glove.840B.300d.char.txt + 1 for an unknown character
     emb_size = 300 # Embeddings size for words
     char_emb_size = 64 # Embeddings size for characters
