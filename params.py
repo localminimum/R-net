@@ -2,7 +2,7 @@ class Params():
 
     # data
     data_size = -1 # -1 to use all data
-    num_epochs = 100
+    num_epochs = 10
     train_prop = 0.9 # Not implemented atm
     data_dir = "./data/"
     train_dir = data_dir + "trainset/"
