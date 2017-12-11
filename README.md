@@ -17,7 +17,7 @@ Once you clone this repo, run the following lines from bash **just once** to pro
 ```shell
 $ pip install -r requirements.txt
 $ bash setup.sh
-$ python process.py --process True
+$ python process.py --reduce_glove True --process True
 ```
 
 # Training / Testing / Debugging
@@ -36,7 +36,7 @@ $ tensorboard --logdir=r-net:train/
 
 # Log
 **18/10/17**
-After some hyperparameter searching, our model quickly reaches EM/F1 score of 50/60 in 4 hours with the hyperparameters suggested in params.py file. However, it quickly overfits after that. **Current best model reaches EM/F1 of 55/67**.
+After some hyperparameter searching, our model quickly reaches EM/F1 score of 50/60 in 4 hours with the hyperparameters suggested in params.py file. However, it quickly overfits after that. **Current best model reaches EM/F1 of 55/67 on dev set**.
 
 **05/09/17**
 After rewriting the architectures, the model converges with full dataset and it takes about 20 hours to reach F1/EM=67/60 on training set and 40/30 on dev set. with batch size of 54. Reproducing the results obtained by R-Net in the original paper is a new work in progress.
