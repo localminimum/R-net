@@ -91,8 +91,13 @@ class GRUCell(RNNCell):
   def output_size(self):
     return self._num_units
 
-  def call(self, inputs, state):
+  def __call__(self, inputs, state, scope = None):
     """Gated recurrent unit (GRU) with nunits cells."""
+    if inputs.shape.as_list()[-1] != self._num_units:
+        with vs.variable_scope("projection"):
+            res = linear(inputs, self._num_units, False, )
+    else:
+        res = inputs
     with vs.variable_scope("gates"):  # Reset gate and update gate.
       # We start with bias of 1.0 to not reset and not update.
       bias_ones = self._bias_initializer
@@ -111,10 +116,9 @@ class GRUCell(RNNCell):
       #if self._is_training and Params.dropout is not None:
         #c = tf.nn.dropout(c, 1 - Params.dropout)
     new_h = u * state + (1 - u) * c
-    return new_h, new_h
+    return new_h + res, new_h
 
 class gated_attention_Wrapper(RNNCell):
-
   def __init__(self,
                num_units,
                memory,
@@ -147,7 +151,7 @@ class gated_attention_Wrapper(RNNCell):
   def output_size(self):
     return self._num_units
 
-  def call(self, inputs, state):
+  def __call__(self, inputs, state, scope = None):
     """Gated recurrent unit (GRU) with nunits cells."""
     with vs.variable_scope("attention_pool"):
         inputs = gated_attention(self._attention,
@@ -157,7 +161,7 @@ class gated_attention_Wrapper(RNNCell):
                                 params = self._params,
                                 self_matching = self._self_matching,
                                 memory_len = self._memory_len)
-    output, new_state = self._cell(inputs, state)
+    output, new_state = self._cell(inputs, state, scope)
     return output, new_state
 
 
