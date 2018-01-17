@@ -91,7 +91,7 @@ class GRUCell(RNNCell):
   def output_size(self):
     return self._num_units
 
-  def call(self, inputs, state):
+  def __call__(self, inputs, state, scope = None):
     """Gated recurrent unit (GRU) with nunits cells."""
     if inputs.shape.as_list()[-1] != self._num_units:
         with vs.variable_scope("projection"):
@@ -151,7 +151,7 @@ class gated_attention_Wrapper(RNNCell):
   def output_size(self):
     return self._num_units
 
-  def call(self, inputs, state):
+  def __call__(self, inputs, state, scope = None):
     """Gated recurrent unit (GRU) with nunits cells."""
     with vs.variable_scope("attention_pool"):
         inputs = gated_attention(self._attention,
@@ -161,7 +161,7 @@ class gated_attention_Wrapper(RNNCell):
                                 params = self._params,
                                 self_matching = self._self_matching,
                                 memory_len = self._memory_len)
-    output, new_state = self._cell(inputs, state)
+    output, new_state = self._cell(inputs, state, scope)
     return output, new_state
 
 
