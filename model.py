@@ -45,13 +45,12 @@ class Model(object):
 			self.attention_match_rnn()
 			self.bidirectional_readout()
 			self.pointer_network()
+			self.outputs()
 
 			if is_training:
 				self.loss_function()
 				self.summary()
 				self.init_op = tf.global_variables_initializer()
-			else:
-				self.outputs()
 			total_params()
 
 	def encode_ids(self):
@@ -151,7 +150,14 @@ class Model(object):
 		self.points_logits = pointer_net(self.final_bidirectional_outputs, self.passage_w_len, self.question_encoding, self.question_w_len, cell, params, scope = "pointer_network")
 
 	def outputs(self):
-		self.output_index = tf.argmax(self.points_logits, axis = 2)
+		self.logit_1, self.logit_2 = tf.split(self.points_logits, 2, axis = 1)
+		self.logit_1 = tf.transpose(self.logit_1, [0, 2, 1])
+		self.dp = tf.matmul(self.logit_1, self.logit_2)
+		self.dp = tf.matrix_band_part(self.dp, 0, 15)
+		self.output_index_1 = tf.argmax(tf.reduce_max(self.dp, axis = 2), -1)
+		self.output_index_2 = tf.argmax(tf.reduce_max(self.dp, axis = 1), -1)
+		self.output_index = tf.stack([self.output_index_1, self.output_index_2], axis = 1)
+		# self.output_index = tf.argmax(self.points_logits, axis = 2)
 
 	def loss_function(self):
 		with tf.variable_scope("loss"):
@@ -184,7 +190,7 @@ class Model(object):
 		self.merged = tf.summary.merge_all()
 
 def debug():
-	model = Model(is_training = True)
+	model = Model(is_training = False)
 	print("Built model")
 
 def test():
@@ -232,8 +238,7 @@ def main():
 						sv.saver.save(sess, Params.logdir + '/model_epoch_%d_step_%d'%(gs//model.num_batch, gs%model.num_batch))
 						sample = np.random.choice(dev_ind, Params.batch_size)
 						feed_dict = {data: devdata[i][sample] for i,data in enumerate(model.data)}
-						logits, dev_loss = sess.run([model.points_logits, model.mean_loss], feed_dict = feed_dict)
-						index = np.argmax(logits, axis = 2)
+						index, dev_loss = sess.run([model.output_index, model.mean_loss], feed_dict = feed_dict)
 						F1, EM = 0.0, 0.0
 						for batch in range(Params.batch_size):
 							f1, em = f1_and_EM(index[batch], devdata[8][sample][batch], devdata[0][sample][batch], dict_)
