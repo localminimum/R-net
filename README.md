@@ -17,6 +17,7 @@ Once you clone this repo, run the following lines from bash **just once** to pro
 ```shell
 $ pipenv install
 $ bash setup.sh
+$ pipenv shell
 $ python process.py --reduce_glove True --process True
 ```
 
