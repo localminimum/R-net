@@ -20,7 +20,7 @@ class Params():
     p_chars_dir = "chars_context.txt"
 
     # Training
-    mode = "train" # case-insensitive options: ["train", "test", "debug"]
+    mode = "demo" # case-insensitive options: ["train", "test", "debug"]
     dropout = 0.2 # dropout probability, if None, don't use dropout
     zoneout = None # zoneout probability, if None, don't use zoneout
     optimizer = "adam" # Options: ["adadelta", "adam", "gradientdescent", "adagrad"]
