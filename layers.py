@@ -98,7 +98,7 @@ def bidirectional_GRU(inputs, inputs_len, cell = None, cell_fn = tf.contrib.rnn.
                 cell_bw = MultiRNNCell([apply_dropout(cell_fn(units), size = inputs.shape[-1] if i == 0 else units, is_training = is_training) for i in range(layers)])
             else:
                 cell_fw, cell_bw = [apply_dropout(cell_fn(units), size = inputs.shape[-1], is_training = is_training) for _ in range(2)]
-
+				
         outputs, states = tf.nn.bidirectional_dynamic_rnn(cell_fw, cell_bw, inputs,
                                                         sequence_length = inputs_len,
                                                         dtype=tf.float32)

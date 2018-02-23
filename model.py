@@ -21,25 +21,51 @@ optimizer_factory = {"adadelta":tf.train.AdadeltaOptimizer,
             "adagrad":tf.train.AdagradOptimizer}
 
 class Model(object):
-    def __init__(self,is_training = True):
+    def __init__(self,is_training = True, demo = False):
         # Build the computational graph when initializing
         self.is_training = is_training
         self.graph = tf.Graph()
         with self.graph.as_default():
             self.global_step = tf.Variable(0, name='global_step', trainable=False)
-            self.data, self.num_batch = get_batch(is_training = is_training)
-            (self.passage_w,
-            self.question_w,
-            self.passage_c,
-            self.question_c,
-            self.passage_w_len_,
-            self.question_w_len_,
-            self.passage_c_len,
-            self.question_c_len,
-            self.indices) = self.data
-
-            self.passage_w_len = tf.squeeze(self.passage_w_len_)
-            self.question_w_len = tf.squeeze(self.question_w_len_)
+            if demo:
+                self.passage_w = tf.placeholder(tf.int32,
+                                        [1, Params.max_p_len,],"passage_w")
+                self.question_w = tf.placeholder(tf.int32,
+                                        [1, Params.max_q_len,],"passage_q")
+                self.passage_c = tf.placeholder(tf.int32,
+                                        [1, Params.max_p_len,Params.max_char_len],"passage_pc")
+                self.question_c = tf.placeholder(tf.int32,
+                                        [1, Params.max_q_len,Params.max_char_len],"passage_qc")
+                self.passage_w_len_ = tf.placeholder(tf.int32,
+                                        [1,1],"passage_w_len_")
+                self.question_w_len_ = tf.placeholder(tf.int32,
+                                        [1,1],"question_w_len_")
+                self.passage_c_len = tf.placeholder(tf.int32,
+                                        [1, Params.max_p_len],"passage_c_len")
+                self.question_c_len = tf.placeholder(tf.int32,
+                                        [1, Params.max_q_len],"question_c_len")
+                self.data = (self.passage_w,
+                            self.question_w,
+                            self.passage_c,
+                            self.question_c,
+                            self.passage_w_len_,
+                            self.question_w_len_,
+                            self.passage_c_len,
+                            self.question_c_len)
+            else:
+                self.data, self.num_batch = get_batch(is_training = is_training)
+                (self.passage_w,
+                self.question_w,
+                self.passage_c,
+                self.question_c,
+                self.passage_w_len_,
+                self.question_w_len_,
+                self.passage_c_len,
+                self.question_c_len,
+                self.indices) = self.data
+                
+            self.passage_w_len = tf.squeeze(self.passage_w_len_, -1)
+            self.question_w_len = tf.squeeze(self.question_w_len_, -1)
 
             self.encode_ids()
             self.params = get_attn_params(Params.attn_size, initializer = tf.contrib.layers.xavier_initializer)
@@ -72,6 +98,7 @@ class Model(object):
                                         word_embeddings = self.word_embeddings,
                                         char_embeddings = self.char_embeddings,
                                         scope = "question_embeddings")
+
         self.passage_char_encoded = bidirectional_GRU(self.passage_char_encoded,
                                 self.passage_c_len,
                                 cell_fn = SRUCell if Params.SRU else GRUCell,
@@ -259,7 +286,7 @@ if __name__ == '__main__':
         test()
     elif Params.mode.lower() == "demo":
         print("Run the local host for online demo...")
-        model = Model(is_training = False); print("Built model")
+        model = Model(is_training = False, demo = True); print("Built model")
         demo_run = Demo(model)
     elif Params.mode.lower() == "train":
         print("Training...")

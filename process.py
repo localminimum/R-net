@@ -186,13 +186,13 @@ class data_loader(object):
 
         pw,pc = self.add_to_dict(p)
         qw,qc = self.add_to_dict(q)
-        p_word_len = [len(x) for x in pw]
-        q_word_len = [len(x) for x in qw]
+        p_word_len = [len(pw)]
+        q_word_len = [len(qw)]
         pc, pcl = get_char_line(" ".join(pc))
         qc, qcl = get_char_line(" ".join(qc))
 
-        p_word_ids = pad_data(pw,p_max_word)
-        q_word_ids = pad_data(qw,q_max_word)
+        p_word_ids = pad_data([pw],p_max_word)
+        q_word_ids = pad_data([qw],q_max_word)
 
         p_word_len = np.reshape(np.asarray(p_word_len,np.int32),(-1,1))
         q_word_len = np.reshape(np.asarray(q_word_len,np.int32),(-1,1))
