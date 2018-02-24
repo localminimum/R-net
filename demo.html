@@ -13,7 +13,7 @@
                         var json = JSON.parse(xhr.responseText);
                         console.log(json.answer);
                         var ans = document.getElementById("answer");
-                        ans.innerHTML = ans;
+                        ans.innerHTML = json.answer;
                     }
                 };
                 var params = JSON.stringify({"question": question, "passage": passage});
@@ -25,6 +25,7 @@
             body{
                 display: grid;
                 grid-template-columns: 7fr 3fr;
+                grid-template-rows: 9fr 1fr;
             }
         </style>
     </head>
@@ -39,7 +40,7 @@
                 var para = document.getElementById("passage");
                 var ques = document.getElementById("question");
                 console.log("hitting");
-                hit(passage, question);
+                hit(para.value, ques.value);
 
             };
         </script>

@@ -1,21 +1,18 @@
+#!/usr/bin/env python
+# coding=utf-8
+
+import tensorflow as tf
 import bottle
-from model import Model, Params
+from bottle import route, run
+import threading
 
-
-def answering_function(passage, question):
-    # TODO
-    return passage
-
+from params import Params
+from process import *
+from time import sleep
 
 app = bottle.Bottle()
-
-
-@app.post('/answer')
-def answer():
-    passage = bottle.request.json['passage']
-    question = bottle.request.json['passage']
-    return {"answer": answering_function(passage, question)}
-
+query = []
+response = ""
 
 @app.get("/")
 def home():
@@ -23,6 +20,49 @@ def home():
         html = fl.read()
         return html
 
+@app.post('/answer')
+def answer():
+    passage = bottle.request.json['passage']
+    question = bottle.request.json['question']
+    # if not passage or not question:
+    #     exit()
+    global query, response
+    query = (passage, question)
+    while not response:
+        sleep(0.1)
+    print("received response: {}".format(response))
+    return {"answer": response}
 
-if __name__ == '__main__':
-    app.run(port=8080, host='0.0.0.0')
+class Demo(object):
+    def __init__(self, model):
+        run_event = threading.Event()
+        run_event.set()
+        threading.Thread(target=self.demo_backend, args = [model, run_event]).start()
+        app.run(port=8080, host='0.0.0.0')
+        try:
+            while 1:
+                sleep(.1)
+        except KeyboardInterrupt:
+            print "Closing server..."
+            run_event.clear()
+
+    def demo_backend(self, model, run_event):
+        global query, response
+        dict_ = pickle.load(open(Params.data_dir + "dictionary.pkl","r"))
+
+        with model.graph.as_default():
+            sv = tf.train.Supervisor()
+            with sv.managed_session() as sess:
+                sv.saver.restore(sess, tf.train.latest_checkpoint(Params.logdir))
+                while run_event.is_set():
+                    sleep(0.1)
+                    if query:
+                        data, shapes = dict_.realtime_process(query)
+                        fd = {m:d for i,(m,d) in enumerate(zip(model.data, data))}
+                        ids = sess.run([model.output_index], feed_dict = fd)
+                        # print(data)
+                        # passage, question = data
+                        ids = ids[0][0]
+                        passage_t = tokenize_corenlp(query[0])
+                        response = " ".join(passage_t[ids[0]:ids[1]+1])
+                        query = []
