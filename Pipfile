@@ -1,0 +1,22 @@
+[[source]]
+
+url = "https://pypi.python.org/simple"
+verify_ssl = true
+name = "pypi"
+
+
+[packages]
+
+nltk = "*"
+numpy = "*"
+tqdm = "*"
+spacy = "*"
+
+
+[dev-packages]
+
+
+
+[requires]
+
+python_version = "2.7"
