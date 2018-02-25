@@ -15,8 +15,9 @@ The dataset used for this task is Stanford Question Answering Dataset (https://r
 # Downloads and Setup
 Once you clone this repo, run the following lines from bash **just once** to process the dataset (SQuAD).
 ```shell
-$ pip install -r requirements.txt
+$ pipenv install
 $ bash setup.sh
+$ pipenv shell
 $ python process.py --reduce_glove True --process True
 ```
 
