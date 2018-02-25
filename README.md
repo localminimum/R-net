@@ -1,9 +1,11 @@
 # R-NET: MACHINE READING COMPREHENSION WITH SELF MATCHING NETWORKS
 
 Tensorflow implementation of https://www.microsoft.com/en-us/research/wp-content/uploads/2017/05/r-net.pdf
-![Alt text](/../dev/screenshots/architecture.png?raw=true "R-NET")
+![Alt text](/../demo/screenshots/demo.gif?)
 
 The dataset used for this task is Stanford Question Answering Dataset (https://rajpurkar.github.io/SQuAD-explorer/). Pretrained GloVe embeddings are used for both words (https://nlp.stanford.edu/projects/glove/) and characters (https://github.com/minimaxir/char-embeddings/blob/master/glove.840B.300d-char.txt).
+
+**As of 26 Feb 2018, thanks to @theSage21 we have a working demo of R-net!**
 
 ## Requirements
   * Python2.7
@@ -21,12 +23,14 @@ $ pipenv shell
 $ python process.py --reduce_glove True --process True
 ```
 
-# Training / Testing / Debugging
+# Training / Testing / Debugging / Interactive Demo
 You can change the hyperparameters from params.py file to fit the model in your GPU. To train the model, run the following line.
 ```shell
 $ python model.py
 ```
 To test or debug your model after training, change mode="train" to debug or test from params.py file and run the model.
+
+**To use demo, put batch size = 1**
 
 # Tensorboard
 Run tensorboard for visualisation.
@@ -36,6 +40,9 @@ $ tensorboard --logdir=r-net:train/
 ![Alt text](/../dev/screenshots/graph.png?raw=true "Tensorboard Graph")
 
 # Log
+**26/02/18**
+As of 26th Feb 2018, thanks to @theSage21 we have an html demo that can easily be launched to user's local host and try out R-net on custom paragraphs and questions.
+
 **18/10/17**
 After some hyperparameter searching, our model quickly reaches EM/F1 score of 50/60 in 4 hours with the hyperparameters suggested in params.py file. However, it quickly overfits after that. **Current best model reaches EM/F1 of 55/67 on dev set**.
 

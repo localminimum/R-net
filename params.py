@@ -20,6 +20,7 @@ class Params():
     p_chars_dir = "chars_context.txt"
 
     # Training
+	# NOTE: To use demo, put batch_size == 1
     mode = "demo" # case-insensitive options: ["train", "test", "debug"]
     dropout = 0.2 # dropout probability, if None, don't use dropout
     zoneout = None # zoneout probability, if None, don't use zoneout
