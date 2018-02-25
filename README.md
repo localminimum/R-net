@@ -5,7 +5,7 @@ Tensorflow implementation of https://www.microsoft.com/en-us/research/wp-content
 
 The dataset used for this task is Stanford Question Answering Dataset (https://rajpurkar.github.io/SQuAD-explorer/). Pretrained GloVe embeddings are used for both words (https://nlp.stanford.edu/projects/glove/) and characters (https://github.com/minimaxir/char-embeddings/blob/master/glove.840B.300d-char.txt).
 
-**As of 26 Feb 2018, thanks to @theSage21 we have a working demo of R-net!**
+**As of 26 Feb 2018, thanks to [@theSage21](https://github.com/thesage21) we have a working demo of R-net!**
 
 ## Requirements
   * Python2.7
@@ -41,7 +41,7 @@ $ tensorboard --logdir=r-net:train/
 
 # Log
 **26/02/18**
-As of 26th Feb 2018, thanks to @theSage21 we have an html demo that can easily be launched to user's local host and try out R-net on custom paragraphs and questions.
+As of 26th Feb 2018, thanks to [@theSage21](https://github.com/thesage21) we have an html demo that can easily be launched to user's local host and try out R-net on custom paragraphs and questions.
 
 **18/10/17**
 After some hyperparameter searching, our model quickly reaches EM/F1 score of 50/60 in 4 hours with the hyperparameters suggested in params.py file. However, it quickly overfits after that. **Current best model reaches EM/F1 of 55/67 on dev set**.
