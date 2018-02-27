@@ -31,7 +31,9 @@ def answer():
     while not response:
         sleep(0.1)
     print("received response: {}".format(response))
-    return {"answer": response}
+    Final_response = {"answer": response}
+    response = []
+    return Final_response
 
 class Demo(object):
     def __init__(self, model):
@@ -60,9 +62,9 @@ class Demo(object):
                         data, shapes = dict_.realtime_process(query)
                         fd = {m:d for i,(m,d) in enumerate(zip(model.data, data))}
                         ids = sess.run([model.output_index], feed_dict = fd)
-                        # print(data)
-                        # passage, question = data
                         ids = ids[0][0]
+                        if ids[0] == ids[1]:
+                            ids[1] += 1
                         passage_t = tokenize_corenlp(query[0])
-                        response = " ".join(passage_t[ids[0]:ids[1]+1])
+                        response = " ".join(passage_t[ids[0]:ids[1]])
                         query = []
