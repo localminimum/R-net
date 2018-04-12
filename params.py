@@ -40,7 +40,7 @@ class Params():
     max_p_len = 300 # Maximum number of words in each passage context
     max_q_len = 30 # Maximum number of words in each question context
     max_char_len = 16 # Maximum number of characters in a word
-    vocab_size = 91604 # Number of vocabs in glove.840B.300d.txt + 1 for an unknown token
+    vocab_size = 91605 # Number of vocabs in glove.840B.300d.txt + 1 for an unknown token
     char_vocab_size = 95 # Number of characters in glove.840B.300d.char.txt + 1 for an unknown character
     emb_size = 300 # Embeddings size for words
     char_emb_size = 8 # Embeddings size for characters
