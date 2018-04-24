@@ -7,13 +7,11 @@ import json
 import codecs
 import unicodedata
 import re
-import nltk
 import sys
 import os
 import argparse
 
 from tqdm import tqdm
-from nltk.tokenize import *
 from params import Params
 
 reload(sys)
@@ -29,6 +27,7 @@ def str2bool(v):
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-p','--process', default = False, type = str2bool, help='Use the coreNLP tokenizer.', required=False)
+parser.add_argument('-r','--reduce_glove', default = False, type = str2bool, help='Reduce glove size.', required=False)
 args = parser.parse_args()
 
 import spacy

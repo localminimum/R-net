@@ -7,10 +7,6 @@ import numpy as np
 from tensorflow.contrib.rnn import MultiRNNCell
 from tensorflow.contrib.rnn import RNNCell
 from params import Params
-
-from tensorflow.contrib.rnn import MultiRNNCell
-from tensorflow.contrib.rnn import RNNCell
-from params import Params
 from zoneout import ZoneoutWrapper
 '''
 attention weights from https://www.microsoft.com/en-us/research/wp-content/uploads/2017/05/r-net.pdf
@@ -56,7 +52,6 @@ def encoding(word, char, word_embeddings, char_embeddings, scope = "embedding"):
 def apply_dropout(inputs, size = None, is_training = True):
     '''
     Implementation of Zoneout from https://arxiv.org/pdf/1606.01305.pdf
-    Default is set to None due to high bias error
     '''
     if Params.dropout is None and Params.zoneout is None:
         return inputs
