@@ -1,7 +1,7 @@
 # R-NET: MACHINE READING COMPREHENSION WITH SELF MATCHING NETWORKS
 
 Tensorflow implementation of https://www.microsoft.com/en-us/research/wp-content/uploads/2017/05/r-net.pdf
-![Alt text](/../dev/screenshots/architecture.png?raw=true "R-NET")
+![Alt text](/../master/screenshots/architecture.png?raw=true "R-NET")
 
 The dataset used for this task is Stanford Question Answering Dataset (https://rajpurkar.github.io/SQuAD-explorer/). Pretrained GloVe embeddings are used for both words (https://nlp.stanford.edu/projects/glove/) and characters (https://github.com/minimaxir/char-embeddings/blob/master/glove.840B.300d-char.txt).
 
@@ -37,7 +37,7 @@ Run tensorboard for visualisation.
 ```shell
 $ tensorboard --logdir=r-net:train/
 ```
-![Alt text](/../dev/screenshots/graph.png?raw=true "Tensorboard Graph")
+![Alt text](/../master/screenshots/graph.png?raw=true "Tensorboard Graph")
 
 # Log
 **26/02/18**
